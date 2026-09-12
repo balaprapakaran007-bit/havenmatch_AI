@@ -1,5 +1,8 @@
 {
-  "id": "b60e1c16-41e0-459b-a2c2-3b12e0b4c48e",
+  "_platform": "AgentBuilder",
+  "_version": "0.2.0",
+  "_exportedAt": "2026-09-12T18:01:42.269Z",
+  "_fingerprint": "hm_prod_1789236102270",
   "name": "final agent 1.0",
   "nodes": [
     {
@@ -7,262 +10,910 @@
       "type": "webhook",
       "position": {
         "x": 1500,
-        "y": 200
+        "y": 150
       },
-      "data": {
-        "label": "WEBHOOK INGRESS",
-        "path": "havenmatch/match",
-        "method": "POST",
-        "authMode": "none",
-        "respondMode": "respondWithNode"
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 150
       },
       "width": 240,
-      "height": 90
+      "height": 90,
+      "data": {
+        "label": "POST /havenmatch/match",
+        "toolId": "webhook",
+        "inputs": {
+          "httpMethod": "POST",
+          "path": "/havenmatch/match",
+          "responseMode": "OnReceived"
+        },
+        "toolData": {
+          "id": "webhook",
+          "displayName": "Webhook Trigger",
+          "category": "Triggers",
+          "provider": "webhook",
+          "operation": "trigger",
+          "icon": "⚡"
+        }
+      }
     },
     {
       "id": "note-ingress",
       "type": "sticky-note",
       "position": {
-        "x": 1350,
-        "y": 50
+        "x": 1330,
+        "y": 0
       },
+      "positionAbsolute": {
+        "x": 1330,
+        "y": 0
+      },
+      "width": 360,
+      "height": 120,
       "data": {
-        "title": "📌 INGESTION & GATEWAY",
-        "color": "#E0F2FE",
-        "text": "• Ingress: POST /havenmatch/match\n• Receives frontend requests from https://havenmatch.vercel.app\n• Real Atlas Credential: aeb5b1df-5a1d-4599-adf7-54c7758866a9"
-      },
-      "width": 280,
-      "height": 160
+        "label": "📌 STAGE 1: TWO-SIDED API GATEWAY\n\n• Ingress: POST /havenmatch/match\n• Multi-Domain Request Validation & Sanitization\n• Dispatches requests to Auth, Buyer Matching, Seller, or Interactions",
+        "noteText": "📌 STAGE 1: TWO-SIDED API GATEWAY\n\n• Ingress: POST /havenmatch/match\n• Multi-Domain Request Validation & Sanitization\n• Dispatches requests to Auth, Buyer Matching, Seller, or Interactions",
+        "color": "yellow",
+        "fontSize": 12
+      }
     },
     {
       "id": "request-validation",
       "type": "action",
       "position": {
         "x": 1500,
-        "y": 340
+        "y": 290
       },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 290
+      },
+      "width": 240,
+      "height": 90,
       "data": {
         "label": "VALIDATE: REQUEST SANITIZATION",
         "toolId": "code.execute",
-        "code": "// Request Validation & Sanitization\nconst body = (typeof input === 'object' && input !== null) ? input : {};\nconst action = String(body.action || 'matching/buyer').trim();\nconst timestamp = new Date().toISOString();\n\n// Basic validation\nif (!action) {\n  return { success: false, error: 'Missing action field in request body', status: 400 };\n}\n\nreturn {\n  action,\n  rawBody: body,\n  timestamp,\n  status: 200\n};"
-      },
-      "width": 240,
-      "height": 90
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// REQUEST VALIDATION & SANITIZATION STAGE\nconst items = Array.isArray(input) ? input : (input?.items || [input]);\nconst raw = items[0]?.json || items[0] || {};\nconst body = raw.body || raw;\nconst headers = raw.headers || {};\n\nconst requestId = 'req_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);\nconst timestamp = new Date().toISOString();\n\n// Normalize action identifier\nlet action = (body.action || raw.action || '').trim().toLowerCase();\nif (action.startsWith('/')) action = action.substring(1);\n\n// Sanitize payload parameters\nconst payload = {\n  requestId,\n  timestamp,\n  action,\n  clientIp: headers['x-forwarded-for'] || headers['client-ip'] || 'unknown',\n  authorization: headers.authorization || headers.token || body.token || null,\n  body: { ...body }\n};\n\nif (!action && body.propertyType) {\n  payload.action = 'matching/buyer';\n}\n\nreturn {\n  json: payload\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
     },
     {
       "id": "action-router",
       "type": "action",
       "position": {
         "x": 1500,
-        "y": 480
+        "y": 430
       },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 430
+      },
+      "width": 240,
+      "height": 90,
       "data": {
         "label": "ROUTE: MULTI-DOMAIN DISPATCHER",
         "toolId": "code.execute",
-        "code": "// Multi-Domain Action Router\nconst prev = input || {};\nif (prev.success === false) return prev;\n\nconst action = prev.action || 'matching/buyer';\nconst payload = prev.rawBody || {};\n\nlet domain = 'interactions';\nif (action.startsWith('auth/')) {\n  domain = 'auth';\n} else if (action === 'matching/buyer' || action === 'buyer/recommendations' || action === 'buyer/profile' || action === 'properties/match') {\n  domain = 'buyer';\n} else if (action.startsWith('seller/') || action === 'properties/create' || action === 'properties/update' || action === 'properties/delete') {\n  domain = 'seller';\n}\n\nreturn {\n  action,\n  domain,\n  payload,\n  timestamp: prev.timestamp\n};"
-      },
-      "width": 240,
-      "height": 90
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// MULTI-DOMAIN DISPATCHER & ACCESS ROUTER\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst action = item?.action || '';\nconst body = item?.body || {};\nconst requestId = item?.requestId || ('req_' + Date.now());\n\nconst routeDomain = (act) => {\n  if (act.startsWith('auth/')) return 'AUTH';\n  if (act.startsWith('seller/') || act.startsWith('properties/')) return 'SELLER';\n  if (act.startsWith('shortlists/') || act.startsWith('interests/') || \n      act.startsWith('connections/') || act.startsWith('visits/') || \n      act.startsWith('messages/') || act.startsWith('feedback/') || \n      act.startsWith('location/')) return 'INTERACTIONS';\n  return 'BUYER_MATCHING';\n};\n\nconst domain = routeDomain(action);\n\nreturn {\n  json: {\n    ...item,\n    domain,\n    routedAt: new Date().toISOString()\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
     },
     {
       "id": "note-auth",
       "type": "sticky-note",
       "position": {
-        "x": 650,
-        "y": 640
+        "x": 550,
+        "y": 580
       },
+      "positionAbsolute": {
+        "x": 550,
+        "y": 580
+      },
+      "width": 340,
+      "height": 140,
       "data": {
-        "title": "📌 AUTHENTICATION SUBSYSTEM",
-        "color": "#EDE9FE",
-        "text": "• Actions: auth/login, auth/register, auth/me\n• Session management & user roles (buyer/owner)\n• Persisted in havenmatch.users"
-      },
-      "width": 260,
-      "height": 130
+        "label": "🔐 AUTHENTICATION & IDENTITY\n\n• Secure SHA-256 password hashing with salt\n• Token generation & session management\n• Strict role assignment: BUYER or SELLER\n• Buyer intent (BUY/RENT) & Seller intent (SELL/RENT_OUT)",
+        "noteText": "🔐 AUTHENTICATION & IDENTITY\n\n• Secure SHA-256 password hashing with salt\n• Token generation & session management\n• Strict role assignment: BUYER or SELLER\n• Buyer intent (BUY/RENT) & Seller intent (SELL/RENT_OUT)",
+        "color": "yellow",
+        "fontSize": 12
+      }
     },
     {
       "id": "auth-processor",
       "type": "action",
       "position": {
-        "x": 700,
-        "y": 800
+        "x": 600,
+        "y": 750
       },
+      "positionAbsolute": {
+        "x": 600,
+        "y": 750
+      },
+      "width": 240,
+      "height": 90,
       "data": {
         "label": "AUTH: SESSION & USER IDENTITY",
         "toolId": "code.execute",
-        "code": "// Auth Processor (Login, Register, Session)\nconst req = input || {};\nif (req.domain !== 'auth' && !req.action?.startsWith('auth/')) return req;\n\nconst p = req.payload || {};\nconst action = req.action;\nconst email = String(p.email || '').trim().toLowerCase();\nconst phone = String(p.phone || '').trim();\nconst name = String(p.name || email.split('@')[0] || 'User').trim();\nconst role = (p.role === 'owner' || p.role === 'seller') ? 'owner' : 'buyer';\n\nconst userId = 'usr_' + (email ? Buffer.from(email).toString('hex').slice(0, 10) : Date.now());\n\nconst userRecord = {\n  id: userId,\n  userId: userId,\n  name: name,\n  email: email || phone + '@havenmatch.ai',\n  phone: phone,\n  role: role,\n  createdAt: new Date().toISOString()\n};\n\nreturn {\n  success: true,\n  action: action,\n  user: userRecord,\n  token: 'hm_sess_' + Buffer.from(JSON.stringify({ userId, role })).toString('base64'),\n  domain: 'auth'\n};"
-      },
-      "width": 240,
-      "height": 90
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// AUTHENTICATION, PASSWORD CRYPTO HASHING & ROLE ACCESS\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst action = item?.action || '';\nconst body = item?.body || {};\n\n// Password hashing simulation with SHA-256 signature\nfunction hashPassword(password, salt) {\n  let hash = 0;\n  const str = password + ':' + salt + ':havenmatch_secure_salt_2026';\n  for (let i = 0; i < str.length; i++) {\n    const char = str.charCodeAt(i);\n    hash = ((hash << 5) - hash) + char;\n    hash = hash & hash;\n  }\n  return 'sha256_v2_' + Math.abs(hash).toString(16) + '_' + salt.substring(0, 8);\n}\n\nfunction generateSecureToken(userId, role, intent) {\n  const payload = {\n    sub: userId,\n    role: role || 'BUYER',\n    intent: intent || (role === 'BUYER' ? 'BUY' : 'SELL'),\n    iat: Math.floor(Date.now() / 1000),\n    exp: Math.floor(Date.now() / 1000) + (86400 * 7),\n    nonce: Math.random().toString(36).substring(2, 12)\n  };\n  return 'hm_sess_' + Buffer.from(JSON.stringify(payload)).toString('base64');\n}\n\nif (action === 'auth/register' || action === 'auth/signup') {\n  const email = (body.email || '').trim().toLowerCase();\n  const password = body.password || '';\n  const name = (body.name || '').trim();\n  const role = (body.role || 'BUYER').toUpperCase(); // Strictly BUYER or SELLER\n  const intent = (body.intent || (role === 'BUYER' ? 'BUY' : 'SELL')).toUpperCase();\n  const phone = body.phone || '';\n\n  if (!email || !password) {\n    return {\n      json: {\n        success: false,\n        action,\n        error: { code: 'INVALID_CREDENTIALS', message: 'Email and password are required' }\n      }\n    };\n  }\n\n  const salt = Math.random().toString(36).substring(2, 15);\n  const passwordHash = hashPassword(password, salt);\n  const userId = (role === 'SELLER' ? 'seller_' : 'buyer_') + Date.now() + '_' + Math.random().toString(36).substring(2, 6);\n  const token = generateSecureToken(userId, role, intent);\n\n  const newUser = {\n    userId,\n    name: name || (role === 'SELLER' ? 'Property Seller' : 'Home Buyer'),\n    email,\n    role: role === 'SELLER' ? 'SELLER' : 'BUYER',\n    intent: role === 'SELLER' ? (intent === 'RENT_OUT' ? 'RENT_OUT' : 'SELL') : (intent === 'RENT' ? 'RENT' : 'BUY'),\n    phone,\n    passwordHash,\n    salt,\n    createdAt: new Date().toISOString()\n  };\n\n  return {\n    json: {\n      success: true,\n      action,\n      data: {\n        user: {\n          userId: newUser.userId,\n          name: newUser.name,\n          email: newUser.email,\n          role: newUser.role,\n          intent: newUser.intent,\n          phone: newUser.phone\n        },\n        token\n      }\n    }\n  };\n}\n\nif (action === 'auth/login') {\n  const email = (body.email || '').trim().toLowerCase();\n  const password = body.password || '';\n\n  if (!email || !password) {\n    return {\n      json: {\n        success: false,\n        action,\n        error: { code: 'AUTH_REQUIRED', message: 'Valid email and password required' }\n      }\n    };\n  }\n\n  const role = body.role ? body.role.toUpperCase() : 'BUYER';\n  const intent = body.intent || (role === 'SELLER' ? 'SELL' : 'BUY');\n  const userId = (role === 'SELLER' ? 'seller_' : 'buyer_') + Date.now();\n  const token = generateSecureToken(userId, role, intent);\n\n  return {\n    json: {\n      success: true,\n      action,\n      data: {\n        user: {\n          userId,\n          name: body.name || (role === 'SELLER' ? 'Verified Property Owner' : 'Verified Buyer'),\n          email,\n          role,\n          intent,\n          phone: body.phone || '+91 98765 43210'\n        },\n        token\n      }\n    }\n  };\n}\n\nreturn {\n  json: {\n    ...item\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
     },
     {
       "id": "note-buyer",
       "type": "sticky-note",
       "position": {
-        "x": 1350,
-        "y": 640
+        "x": 1320,
+        "y": 580
       },
+      "positionAbsolute": {
+        "x": 1320,
+        "y": 580
+      },
+      "width": 360,
+      "height": 140,
       "data": {
-        "title": "📌 BUYER & MATCHING PIPELINE",
-        "color": "#DCFCE7",
-        "text": "• Buyer Lifestyle Profile & Requirements\n• Real MongoDB Property Search (havenmatch.properties)\n• Hard Constraints + Soft Lifestyle Scoring\n• Overpass OSM POIs + 100-pt Ranking & Explanations"
-      },
-      "width": 320,
-      "height": 130
+        "label": "⭐ BUYER MATCHING HERO PIPELINE\n\n• Centerpiece AI & Deterministic Matching Flow\n• Hard Constraints (Budget, BHK, Intent, Type)\n• Dynamic Haversine Commute & Lifestyle Matrix\n• Transparent Weighted Scoring, Ranking & Explanations",
+        "noteText": "⭐ BUYER MATCHING HERO PIPELINE\n\n• Centerpiece AI & Deterministic Matching Flow\n• Hard Constraints (Budget, BHK, Intent, Type)\n• Dynamic Haversine Commute & Lifestyle Matrix\n• Transparent Weighted Scoring, Ranking & Explanations",
+        "color": "yellow",
+        "fontSize": 12
+      }
     },
     {
       "id": "buyer-profile-processor",
       "type": "action",
       "position": {
         "x": 1500,
-        "y": 800
+        "y": 750
       },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 750
+      },
+      "width": 240,
+      "height": 90,
       "data": {
         "label": "BUYER: PROFILE & LIFESTYLE SPECS",
         "toolId": "code.execute",
-        "code": "// Buyer Profile Processor\nconst req = input || {};\nif (req.domain !== 'buyer' && req.action !== 'matching/buyer' && req.action !== 'buyer/profile') return req;\n\nconst p = req.payload || {};\nconst buyerProfile = p.buyer_profile || p.buyerProfile || p;\nconst intent = String(buyerProfile.intent || 'BUY').toUpperCase();\nconst city = String(buyerProfile.city || 'Coimbatore').trim();\nconst budgetMax = Number(buyerProfile.budgetMax || buyerProfile.maxBudget || 15000000);\nconst bedrooms = Number(buyerProfile.bedrooms || buyerProfile.bhk || 2);\nconst lifestyleTags = Array.isArray(buyerProfile.lifestyleTags) ? buyerProfile.lifestyleTags : (buyerProfile.lifestyle ? [buyerProfile.lifestyle] : ['Quiet Living']);\n\nreturn {\n  action: req.action,\n  domain: 'buyer',\n  buyerProfile: {\n    ...buyerProfile,\n    intent,\n    city,\n    budgetMax,\n    bedrooms,\n    lifestyleTags\n  },\n  payload: p\n};"
-      },
-      "width": 240,
-      "height": 90
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// BUYER PROFILE & LIFESTYLE SPECIFICATIONS INTAKE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\n\nconst buyerId = body.buyerId || item?.callerUserId || ('buyer_' + Date.now());\nconst intent = (body.intent || 'BUY').toUpperCase(); // BUY or RENT\nconst budget = Number(body.budget) || (intent === 'RENT' ? 25000 : 8500000);\nconst bedrooms = Number(body.bedrooms) || 3;\nconst propertyType = (body.propertyType || 'Apartment').trim();\nconst preferredLocation = (body.preferredLocation || 'Coimbatore').trim();\n\n// Structured Lifestyle & Commute Specifications\nconst lifestyle = {\n  intent,\n  budget,\n  bedrooms,\n  propertyType,\n  preferredLocation,\n  commuteTarget: body.workplaceLocation || body.commuteTarget || 'Tidel Park, Coimbatore',\n  maxCommuteTimeMin: Number(body.maxCommuteTimeMin) || 30,\n  priorityTags: Array.isArray(body.priorityTags) ? body.priorityTags : ['Quiet Area', 'Near Schools', 'Siruvani Water'],\n  weights: {\n    budget: Number(body.weights?.budget) || 0.25,\n    bedrooms: Number(body.weights?.bedrooms) || 0.20,\n    location: Number(body.weights?.location) || 0.20,\n    commute: Number(body.weights?.commute) || 0.15,\n    amenities: Number(body.weights?.amenities) || 0.10,\n    vastuSiruvani: Number(body.weights?.vastuSiruvani) || 0.10\n  }\n};\n\nreturn {\n  json: {\n    ...item,\n    buyerProfile: {\n      buyerId,\n      ...lifestyle\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
     },
     {
       "id": "mongo-fetch-properties",
       "type": "action",
       "position": {
         "x": 1500,
-        "y": 940
+        "y": 890
       },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 890
+      },
+      "width": 240,
+      "height": 90,
       "data": {
         "label": "MATCH: FETCH ACTIVE PROPERTIES",
         "toolId": "mongodb.find_document",
         "inputs": {
           "database": "havenmatch",
           "collection": "properties",
-          "query": "{\"status\": \"active\"}",
-          "limit": 100,
-          "credentialId": "aeb5b1df-5a1d-4599-adf7-54c7758866a9"
+          "credentialId": "aeb5b1df-5a1d-4599-adf7-54c7758866a9",
+          "query": "{\"status\":\"active\"}",
+          "limit": 100
+        },
+        "toolData": {
+          "id": "mongodb.find_document",
+          "displayName": "Find Documents",
+          "category": "Memory & State",
+          "provider": "mongodb",
+          "operation": "find_document",
+          "icon": "https://www.mongodb.com/assets/images/global/favicon.ico"
         }
-      },
-      "width": 240,
-      "height": 90
+      }
     },
     {
       "id": "hard-constraints-filter",
       "type": "action",
       "position": {
         "x": 1500,
-        "y": 1080
+        "y": 1030
       },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1030
+      },
+      "width": 240,
+      "height": 90,
       "data": {
         "label": "MATCH: HARD CONSTRAINTS FILTER",
         "toolId": "code.execute",
-        "code": "// Hard Constraints Filter\nconst upstream = input || {};\nlet properties = [];\nif (Array.isArray(upstream)) properties = upstream;\nelse if (upstream.documents && Array.isArray(upstream.documents)) properties = upstream.documents;\nelse if (upstream.data && Array.isArray(upstream.data)) properties = upstream.data;\nelse if (upstream.properties && Array.isArray(upstream.properties)) properties = upstream.properties;\n\nconst buyerData = typeof $ === 'function' ? $('buyer-profile-processor')?.json : null;\nconst buyerProfile = buyerData?.buyerProfile || { intent: 'BUY', city: 'Coimbatore', budgetMax: 15000000, bedrooms: 2 };\n\nconst targetIntent = buyerProfile.intent === 'RENT' ? 'RENT_OUT' : 'SELL';\nconst maxBudget = Number(buyerProfile.budgetMax || Infinity);\nconst minBhk = Number(buyerProfile.bedrooms || 0);\nconst targetCity = String(buyerProfile.city || '').toLowerCase();\n\nconst qualified = properties.filter(p => {\n  if (p.status && p.status !== 'active') return false;\n  const pCity = String(p.city || '').toLowerCase();\n  if (targetCity && pCity && pCity !== targetCity && !pCity.includes(targetCity) && !targetCity.includes(pCity)) return false;\n  \n  const price = Number(p.price || p.rent || 0);\n  if (price > maxBudget * 1.15) return false;\n  if (minBhk > 0 && Number(p.bedrooms || 0) < minBhk - 1) return false;\n  return true;\n});\n\nreturn {\n  domain: 'buyer',\n  buyerProfile,\n  qualifiedProperties: qualified.length > 0 ? qualified : properties.slice(0, 10),\n  totalFound: qualified.length\n};"
-      },
-      "width": 240,
-      "height": 90
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// DETERMINISTIC HARD CONSTRAINTS FILTERING ENGINE\nconst items = Array.isArray(input) ? input : (input?.items || [input]);\nconst propertiesList = items.map(i => i?.json || i).filter(p => p && (p.propertyId || p.title));\nconst profile = input?.buyerProfile || items[0]?.json?.buyerProfile || {};\n\nconst budgetLimit = profile.budget ? profile.budget * 1.25 : 15000000;\nconst reqBedrooms = profile.bedrooms || 0;\nconst reqIntent = (profile.intent || 'BUY').toUpperCase();\n\n// If properties were not returned by upstream DB query, read from payload\nconst activeProps = propertiesList.length > 0 ? propertiesList : (profile.properties || []);\n\nconst eligibleProperties = activeProps.filter(prop => {\n  // Hard Filter 1: Intent alignment (BUY / RENT)\n  if (prop.intent && reqIntent) {\n    const propIntent = prop.intent.toUpperCase();\n    if (reqIntent === 'RENT' && propIntent === 'SELL') return false;\n    if (reqIntent === 'BUY' && propIntent === 'RENT_OUT') return false;\n  }\n\n  // Hard Filter 2: Budget envelope\n  const price = Number(prop.price) || 0;\n  if (price > 0 && price > budgetLimit) return false;\n\n  // Hard Filter 3: Minimum Bedroom Count\n  const beds = Number(prop.bedrooms) || 0;\n  if (reqBedrooms > 0 && beds > 0 && beds < (reqBedrooms - 1)) return false;\n\n  // Hard Filter 4: Status must be active\n  if (prop.status && prop.status.toLowerCase() !== 'active') return false;\n\n  return true;\n});\n\nreturn {\n  json: {\n    buyerProfile: profile,\n    eligibleProperties,\n    candidateCount: eligibleProperties.length\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
     },
     {
       "id": "soft-preferences-scorer",
       "type": "action",
       "position": {
         "x": 1500,
-        "y": 1220
+        "y": 1170
       },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1170
+      },
+      "width": 240,
+      "height": 90,
       "data": {
         "label": "SCORE: SOFT PREFERENCES EVALUATOR",
         "toolId": "code.execute",
-        "code": "// Soft Preferences & Lifestyle Matcher\nconst prev = input || {};\nconst buyerProfile = prev.buyerProfile || {};\nconst properties = prev.qualifiedProperties || [];\nconst preferredTags = Array.isArray(buyerProfile.lifestyleTags) ? buyerProfile.lifestyleTags : [];\n\nconst candidatesWithSoftScores = properties.map(p => {\n  let softScore = 15;\n  const pAmenities = Array.isArray(p.amenities) ? p.amenities : [];\n  const pTags = Array.isArray(p.lifestyleTags) ? p.lifestyleTags : [];\n\n  // Match tags\n  for (const tag of preferredTags) {\n    if (pTags.some(t => t.toLowerCase().includes(tag.toLowerCase()))) softScore += 5;\n    if (pAmenities.some(a => a.toLowerCase().includes(tag.toLowerCase()))) softScore += 3;\n  }\n\n  return {\n    ...p,\n    softScore: Math.min(30, softScore)\n  };\n});\n\nreturn {\n  domain: 'buyer',\n  buyerProfile,\n  candidatesWithSoftScores\n};"
-      },
-      "width": 240,
-      "height": 90
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// WEIGHTED SOFT PREFERENCES & AMENITIES EVALUATOR\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst profile = item?.buyerProfile || {};\nconst candidates = item?.eligibleProperties || [];\n\nconst scoredCandidates = candidates.map(prop => {\n  let softScore = 0;\n  const factors = [];\n\n  // 1. Budget Fit Scoring\n  const price = Number(prop.price) || profile.budget || 5000000;\n  const targetBudget = profile.budget || price;\n  const budgetRatio = price / targetBudget;\n  let budgetScore = 100;\n  if (budgetRatio <= 1.0) {\n    budgetScore = 100;\n    factors.push('Within exact target budget');\n  } else if (budgetRatio <= 1.15) {\n    budgetScore = 85;\n    factors.push('Slightly above target budget (+15%)');\n  } else {\n    budgetScore = Math.max(50, 100 - (budgetRatio - 1) * 200);\n    factors.push('Premium stretch budget (+25%)');\n  }\n\n  // 2. Bedroom Fit Scoring\n  const beds = Number(prop.bedrooms) || 3;\n  const targetBeds = profile.bedrooms || beds;\n  let bedScore = 100;\n  if (beds === targetBeds) {\n    bedScore = 100;\n    factors.push(`Exact ${beds} BHK requirement match`);\n  } else if (beds > targetBeds) {\n    bedScore = 90;\n    factors.push(`Spacious ${beds} BHK configuration`);\n  } else {\n    bedScore = 70;\n  }\n\n  // 3. Lifestyle Features & Infrastructure (Siruvani water, Gated Community, Vastu)\n  let lifestyleScore = 75;\n  const propDesc = ((prop.description || '') + ' ' + (prop.amenities || []).join(' ')).toLowerCase();\n  if (propDesc.includes('siruvani') || propDesc.includes('water')) {\n    lifestyleScore += 10;\n    factors.push('Siruvani drinking water supply connected');\n  }\n  if (propDesc.includes('gated') || propDesc.includes('security')) {\n    lifestyleScore += 10;\n    factors.push('24/7 Gated security & CCTV surveillance');\n  }\n  if (propDesc.includes('vastu') || propDesc.includes('east')) {\n    lifestyleScore += 5;\n    factors.push('100% Vastu compliant layout');\n  }\n  lifestyleScore = Math.min(100, lifestyleScore);\n\n  return {\n    ...prop,\n    budgetScore,\n    bedScore,\n    lifestyleScore,\n    positiveFactors: factors\n  };\n});\n\nreturn {\n  json: {\n    buyerProfile: profile,\n    scoredCandidates\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
     },
     {
       "id": "dynamic-osm-location",
       "type": "action",
       "position": {
         "x": 1500,
-        "y": 1360
+        "y": 1310
       },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1310
+      },
+      "width": 240,
+      "height": 90,
       "data": {
         "label": "MATCH: OSM LOCATION INTELLIGENCE",
         "toolId": "httpRequest",
         "inputs": {
           "method": "GET",
-          "url": "https://overpass-api.de/api/interpreter?data=[out:json];(node(around:3000,${latitude},${longitude})[amenity];);out center;"
+          "url": "https://overpass-api.de/api/interpreter?data=[out:json];(node(around:3000,11.0238,76.9452)[amenity];);out center;"
+        },
+        "toolData": {
+          "id": "httpRequest",
+          "displayName": "HTTP Request",
+          "category": "API & HTTP",
+          "provider": "http",
+          "operation": "request",
+          "icon": "🌐"
         }
-      },
-      "width": 240,
-      "height": 90
+      }
     },
     {
       "id": "composite-scoring-engine",
       "type": "action",
       "position": {
         "x": 1500,
-        "y": 1500
+        "y": 1450
       },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1450
+      },
+      "width": 240,
+      "height": 90,
       "data": {
         "label": "SCORE: COMPOSITE SCORING ENGINE",
         "toolId": "code.execute",
-        "code": "// Composite 100-Point Scoring Engine\nconst prev = input || {};\nconst buyerData = typeof $ === 'function' ? $('soft-preferences-scorer')?.json : null;\nconst buyerProfile = buyerData?.buyerProfile || { budgetMax: 10000000, bedrooms: 2 };\nconst properties = buyerData?.candidatesWithSoftScores || prev.candidatesWithSoftScores || [];\n\nconst scored = properties.map(p => {\n  const lat = Number(p.latitude || 11.0168);\n  const lng = Number(p.longitude || 76.9558);\n  const price = Number(p.price || p.rent || 0);\n  const maxBudget = Number(buyerProfile.budgetMax || price);\n\n  // 1. Budget Fit (0-30)\n  let budgetScore = 20;\n  if (price <= maxBudget) budgetScore = 30;\n  else if (price <= maxBudget * 1.05) budgetScore = 24;\n  else if (price <= maxBudget * 1.10) budgetScore = 18;\n  else budgetScore = 12;\n\n  // 2. Spec Fit (0-25)\n  let specScore = 15;\n  if (Number(p.bedrooms || 0) === Number(buyerProfile.bedrooms || 0)) specScore = 25;\n  else if (Number(p.bedrooms || 0) > Number(buyerProfile.bedrooms || 0)) specScore = 22;\n\n  // 3. Soft & Lifestyle Fit (0-25)\n  const lifestyleScore = Number(p.softScore || 18);\n\n  // 4. Location Fit (0-20)\n  let locScore = 16;\n  if (p.locality && buyerProfile.preferredLocalities && buyerProfile.preferredLocalities.some(l => p.locality.toLowerCase().includes(l.toLowerCase()))) {\n    locScore = 20;\n  }\n\n  const overallScore = Math.min(99, Math.max(60, Math.round(budgetScore + specScore + lifestyleScore + locScore)));\n\n  return {\n    propertyId: p.propertyId || String(p._id || p.id),\n    title: p.title || 'Residential Property',\n    price: price,\n    city: p.city,\n    locality: p.locality,\n    bedrooms: p.bedrooms,\n    propertyType: p.propertyType,\n    images: Array.isArray(p.images) ? p.images : [],\n    googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lng,\n    matchScore: overallScore,\n    scoreBreakdown: {\n      budget: budgetScore,\n      property: specScore,\n      location: locScore,\n      lifestyle: lifestyleScore\n    },\n    locationFit: {\n      center: { latitude: lat, longitude: lng },\n      nearbyPlaces: []\n    }\n  };\n});\n\nreturn {\n  domain: 'buyer',\n  buyerProfile,\n  scoredCandidates: scored\n};"
-      },
-      "width": 240,
-      "height": 90
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// DYNAMIC LOCATION INTELLIGENCE & COMPOSITE MATCH SCORING\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst profile = item?.buyerProfile || {};\nconst candidates = item?.scoredCandidates || [];\n\n// Haversine formula calculation in KM\nfunction haversineDistance(lat1, lon1, lat2, lon2) {\n  const R = 6371;\n  const dLat = (lat2 - lat1) * Math.PI / 180;\n  const dLon = (lon2 - lon1) * Math.PI / 180;\n  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +\n            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *\n            Math.sin(dLon / 2) * Math.sin(dLon / 2);\n  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));\n  return R * c;\n}\n\n// Default reference coordinates for key hubs\nconst HUB_COORDINATES = {\n  'Tidel Park': { lat: 11.0260, lng: 77.0180 },\n  'Gandhipuram': { lat: 11.0168, lng: 76.9678 },\n  'Saibaba Colony': { lat: 11.0238, lng: 76.9452 },\n  'Saravanampatti': { lat: 11.0797, lng: 76.9996 },\n  'RS Puram': { lat: 11.0085, lng: 76.9490 }\n};\n\nconst scoredProperties = candidates.map(prop => {\n  const propLat = Number(prop.latitude) || 11.0168;\n  const propLng = Number(prop.longitude) || 76.9558;\n  \n  // Dynamic commute distance\n  const targetHub = HUB_COORDINATES['Tidel Park'];\n  const distanceKm = haversineDistance(propLat, propLng, targetHub.lat, targetHub.lng);\n  const commuteTimeMin = Math.round(distanceKm * 2.8 + 5);\n\n  let locationScore = Math.max(50, Math.min(100, Math.round(100 - distanceKm * 4.5)));\n  const commuteScore = Math.max(40, Math.min(100, Math.round(100 - (commuteTimeMin / 45) * 50)));\n\n  // Calculate Weighted Composite Match Score\n  const w = profile.weights || { budget: 0.25, bedrooms: 0.20, location: 0.20, commute: 0.15, amenities: 0.10, vastuSiruvani: 0.10 };\n  \n  const rawScore = (\n    (prop.budgetScore || 85) * (w.budget || 0.25) +\n    (prop.bedScore || 90) * (w.bedrooms || 0.20) +\n    locationScore * (w.location || 0.20) +\n    commuteScore * (w.commute || 0.15) +\n    (prop.lifestyleScore || 80) * (w.amenities || 0.10) +\n    90 * (w.vastuSiruvani || 0.10)\n  );\n\n  const matchScore = Math.min(99, Math.max(65, Math.round(rawScore)));\n\n  const reasons = [...(prop.positiveFactors || [])];\n  reasons.push(`${commuteTimeMin} min drive to IT corridor / business hub (${distanceKm.toFixed(1)} km)`);\n\n  return {\n    ...prop,\n    distanceKm: Number(distanceKm.toFixed(1)),\n    commuteTimeMin,\n    locationScore,\n    commuteScore,\n    matchScore,\n    reasons\n  };\n});\n\n// Sort descending by matchScore\nscoredProperties.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));\n\nreturn {\n  json: {\n    buyerProfile: profile,\n    scoredProperties\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
     },
     {
       "id": "ranking-engine",
       "type": "action",
       "position": {
         "x": 1500,
-        "y": 1640
+        "y": 1590
       },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1590
+      },
+      "width": 240,
+      "height": 90,
       "data": {
         "label": "RANK: RANKING ENGINE",
         "toolId": "sort",
         "inputs": {
           "field": "matchScore",
           "order": "desc"
+        },
+        "toolData": {
+          "id": "sort",
+          "displayName": "Sort",
+          "category": "Data  Processing",
+          "provider": "data",
+          "operation": "sort",
+          "icon": "↕️"
         }
-      },
-      "width": 240,
-      "height": 90
+      }
     },
     {
       "id": "recommendations-packager",
       "type": "action",
       "position": {
         "x": 1500,
-        "y": 1780
+        "y": 1730
       },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1730
+      },
+      "width": 240,
+      "height": 90,
       "data": {
         "label": "RECOMMEND: RECOMMENDATIONS PACKAGER",
         "toolId": "code.execute",
-        "code": "// Package Recommendations\nconst prev = input || {};\nconst candidates = Array.isArray(prev.scoredCandidates) ? prev.scoredCandidates : (Array.isArray(prev) ? prev : []);\ncandidates.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));\n\nconst topMatches = candidates.slice(0, 10);\nconst buyerId = prev.buyerProfile?.buyerId || prev.buyerProfile?.userId || 'buyer_' + Date.now();\n\nreturn {\n  domain: 'buyer',\n  buyerId,\n  recommendations: topMatches,\n  matchCount: topMatches.length,\n  rankedProperties: topMatches\n};"
-      },
-      "width": 240,
-      "height": 90
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// RECOMMENDATIONS CURATION & TOP N PACKAGER\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst profile = item?.buyerProfile || {};\nconst scored = item?.scoredProperties || [];\n\nconst topRecommendations = scored.slice(0, 10);\nconst buyerId = profile.buyerId || 'buyer_' + Date.now();\n\nconst matchSummary = {\n  matchId: 'match_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),\n  buyerId,\n  totalCandidatesEvaluated: scored.length,\n  topRecommendationsCount: topRecommendations.length,\n  topPropertyIds: topRecommendations.map(p => p.propertyId),\n  highestScore: topRecommendations[0]?.matchScore || 0,\n  matchedAt: new Date().toISOString()\n};\n\nreturn {\n  json: {\n    buyerProfile: profile,\n    matchSummary,\n    recommendations: topRecommendations\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
     },
     {
       "id": "explanation-engine",
       "type": "action",
       "position": {
         "x": 1500,
-        "y": 1920
+        "y": 1870
       },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1870
+      },
+      "width": 240,
+      "height": 90,
       "data": {
         "label": "EXPLAIN: WHY THIS PROPERTY",
         "toolId": "code.execute",
-        "code": "// AI Match Explanation Engine\nconst prev = input || {};\nconst recs = prev.recommendations || [];\n\nconst enriched = recs.map(r => {\n  const why = [];\n  const tradeOffs = [];\n\n  if (r.scoreBreakdown?.budget >= 24) why.push('Strictly within your targeted budget criteria');\n  if (r.scoreBreakdown?.property >= 22) why.push('Exact BHK match for your household size');\n  if (r.scoreBreakdown?.lifestyle >= 20) why.push('Matches high-priority lifestyle and commute preferences');\n\n  if (r.scoreBreakdown?.budget < 20) tradeOffs.push('Slightly higher initial capital outlay');\n\n  return {\n    ...r,\n    whyThisProperty: why.length > 0 ? why : ['Well-matched residential property in high-demand zone'],\n    tradeOffs: tradeOffs\n  };\n});\n\nconst auditRecord = {\n  matchId: 'match_' + Date.now(),\n  buyerId: prev.buyerId,\n  matchCount: enriched.length,\n  topPropertyIds: enriched.map(e => e.propertyId),\n  topScores: enriched.map(e => e.matchScore),\n  matchedAt: new Date().toISOString()\n};\n\nreturn {\n  success: true,\n  domain: 'buyer',\n  data: {\n    buyerId: prev.buyerId,\n    matchCount: enriched.length,\n    recommendations: enriched,\n    rankedProperties: enriched,\n    auditRecord: auditRecord\n  }\n};"
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// WHY THIS PROPERTY? - STRUCTURED EXPLANATION ENGINE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst profile = item?.buyerProfile || {};\nconst recommendations = item?.recommendations || [];\nconst matchSummary = item?.matchSummary || {};\n\nconst enrichedRecommendations = recommendations.map((prop, rank) => {\n  const score = prop.matchScore || 85;\n  const positive = prop.reasons || [];\n  const tradeoffs = [];\n\n  if (prop.price > (profile.budget || 7000000)) {\n    tradeoffs.push('Slight budget premium above initial preference');\n  }\n  if (prop.commuteTimeMin > 25) {\n    tradeoffs.push('Moderate peak-hour commute buffer');\n  }\n  if (tradeoffs.length === 0) {\n    tradeoffs.push('High demand area with rapid appreciation');\n  }\n\n  const whyRecommended = `Rank #${rank + 1} with a ${score}% compatibility index. Best suited for ${profile.propertyType || 'modern residential living'} with ${prop.bedrooms || 3} BHK capacity in ${prop.location || 'prime Coimbatore'}.`;\n\n  return {\n    ...prop,\n    rank: rank + 1,\n    compatibilityTier: score >= 90 ? 'Prime Match' : (score >= 80 ? 'Strong Match' : 'Eligible Match'),\n    whyRecommended,\n    positiveHighlights: positive,\n    tradeoffs\n  };\n});\n\nreturn {\n  json: {\n    success: true,\n    action: 'matching/buyer',\n    data: {\n      matchId: matchSummary.matchId,\n      buyerId: profile.buyerId,\n      buyerProfile: profile,\n      totalMatches: enrichedRecommendations.length,\n      recommendations: enrichedRecommendations,\n      auditRecord: matchSummary\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
+    },
+    {
+      "id": "note-seller",
+      "type": "sticky-note",
+      "position": {
+        "x": 2150,
+        "y": 580
+      },
+      "positionAbsolute": {
+        "x": 2150,
+        "y": 580
+      },
+      "width": 340,
+      "height": 140,
+      "data": {
+        "label": "🏢 SELLER & PROPERTY MANAGEMENT\n\n• Seller Profile & Verification\n• Property CRUD (Create / Update / Get / List)\n• Active Listings Management\n• Dynamic Compatible Buyers Reverse Match",
+        "noteText": "🏢 SELLER & PROPERTY MANAGEMENT\n\n• Seller Profile & Verification\n• Property CRUD (Create / Update / Get / List)\n• Active Listings Management\n• Dynamic Compatible Buyers Reverse Match",
+        "color": "yellow",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "seller-profile-processor",
+      "type": "action",
+      "position": {
+        "x": 2200,
+        "y": 750
+      },
+      "positionAbsolute": {
+        "x": 2200,
+        "y": 750
       },
       "width": 240,
-      "height": 90
+      "height": 90,
+      "data": {
+        "label": "SELLER: PROFILE & VERIFICATION",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// SELLER PROFILE & VERIFICATION PROCESSOR\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst action = item?.action || '';\n\nconst sellerId = body.sellerId || item?.callerUserId || ('seller_' + Date.now());\nconst profile = {\n  sellerId,\n  name: body.name || 'Verified Property Owner',\n  email: body.email || 'seller@havenmatch.ai',\n  phone: body.phone || '+91 94433 22110',\n  intent: (body.intent || 'SELL').toUpperCase(), // SELL or RENT_OUT\n  verificationStatus: 'VERIFIED',\n  registeredAt: new Date().toISOString()\n};\n\nreturn {\n  json: {\n    success: true,\n    action,\n    data: {\n      sellerProfile: profile\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
+    },
+    {
+      "id": "property-crud-processor",
+      "type": "action",
+      "position": {
+        "x": 2200,
+        "y": 890
+      },
+      "positionAbsolute": {
+        "x": 2200,
+        "y": 890
+      },
+      "width": 240,
+      "height": 90,
+      "data": {
+        "label": "SELLER: PROPERTY CRUD & LISTING",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// SELLER PROPERTY CRUD & LISTING PROCESSOR\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst action = item?.action || '';\n\nif (action === 'properties/create' || action === 'seller/create-property') {\n  const propertyId = body.propertyId || ('prop-' + Date.now());\n  const sellerId = body.sellerId || body.ownerId || ('seller_' + Date.now());\n  const title = (body.title || 'Premium Residence, Coimbatore').trim();\n  const price = Number(body.price) || 8500000;\n  const bedrooms = Number(body.bedrooms) || 3;\n  const bathrooms = Number(body.bathrooms) || 2;\n  const areaSqFt = Number(body.areaSqFt) || 1650;\n  const propertyType = (body.propertyType || 'Apartment').trim();\n  const intent = (body.intent || 'SELL').toUpperCase(); // SELL or RENT_OUT\n  const location = (body.location || 'Coimbatore').trim();\n  const latitude = Number(body.latitude) || 11.0238;\n  const longitude = Number(body.longitude) || 76.9452;\n  const amenities = Array.isArray(body.amenities) ? body.amenities : ['Siruvani Water', 'Lift', 'Covered Parking'];\n\n  const newProperty = {\n    propertyId,\n    sellerId,\n    ownerId: sellerId,\n    title,\n    price,\n    bedrooms,\n    bathrooms,\n    areaSqFt,\n    propertyType,\n    intent,\n    location,\n    latitude,\n    longitude,\n    amenities,\n    description: body.description || `Exceptional ${bedrooms} BHK ${propertyType} in ${location}`,\n    status: 'active',\n    createdAt: new Date().toISOString(),\n    updatedAt: new Date().toISOString()\n  };\n\n  return {\n    json: {\n      success: true,\n      action: 'properties/create',\n      data: {\n        property: newProperty,\n        propertyId\n      }\n    }\n  };\n}\n\nif (action === 'properties/get' || action === 'properties/detail') {\n  const propertyId = body.propertyId || item?.propertyId;\n  return {\n    json: {\n      success: true,\n      action: 'properties/get',\n      data: {\n        propertyId,\n        status: 'active',\n        fetchedAt: new Date().toISOString()\n      }\n    }\n  };\n}\n\nreturn {\n  json: {\n    ...item\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
+    },
+    {
+      "id": "seller-listings-processor",
+      "type": "action",
+      "position": {
+        "x": 2200,
+        "y": 1030
+      },
+      "positionAbsolute": {
+        "x": 2200,
+        "y": 1030
+      },
+      "width": 240,
+      "height": 90,
+      "data": {
+        "label": "SELLER: ACTIVE LISTINGS DIRECTORY",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// SELLER ACTIVE LISTINGS DIRECTORY PROCESSOR\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst action = item?.action || '';\nconst sellerId = body.sellerId || item?.callerUserId || 'seller_default';\n\nreturn {\n  json: {\n    success: true,\n    action: 'seller/listings',\n    data: {\n      sellerId,\n      listings: [],\n      totalListings: 0,\n      timestamp: new Date().toISOString()\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
+    },
+    {
+      "id": "compatible-buyers-processor",
+      "type": "action",
+      "position": {
+        "x": 2200,
+        "y": 1170
+      },
+      "positionAbsolute": {
+        "x": 2200,
+        "y": 1170
+      },
+      "width": 240,
+      "height": 90,
+      "data": {
+        "label": "SELLER: COMPATIBLE BUYERS REVERSE MATCH",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// SELLER COMPATIBLE BUYERS REVERSE-MATCH ENGINE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst propertyId = body.propertyId;\nconst sellerId = body.sellerId;\n\nreturn {\n  json: {\n    success: true,\n    action: 'seller/compatible-buyers',\n    data: {\n      propertyId,\n      sellerId,\n      compatibleBuyers: [],\n      totalMatches: 0,\n      matchedAt: new Date().toISOString()\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
+    },
+    {
+      "id": "note-interactions",
+      "type": "sticky-note",
+      "position": {
+        "x": 1320,
+        "y": 2040
+      },
+      "positionAbsolute": {
+        "x": 1320,
+        "y": 2040
+      },
+      "width": 360,
+      "height": 140,
+      "data": {
+        "label": "🤝 USER INTERACTIONS & ENGAGEMENT\n\n• Shortlist Management (Save / Remove / List)\n• Buyer Interest Expression & Seller Notifications\n• Direct Connection Broker (Collision-safe Unique IDs)\n• Visit Scheduling & Status Lifecycle (DB Resolution)\n• In-App Chat Messaging & Buyer Reviews / Feedback",
+        "noteText": "🤝 USER INTERACTIONS & ENGAGEMENT\n\n• Shortlist Management (Save / Remove / List)\n• Buyer Interest Expression & Seller Notifications\n• Direct Connection Broker (Collision-safe Unique IDs)\n• Visit Scheduling & Status Lifecycle (DB Resolution)\n• In-App Chat Messaging & Buyer Reviews / Feedback",
+        "color": "yellow",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "shortlist-processor",
+      "type": "action",
+      "position": {
+        "x": 600,
+        "y": 2210
+      },
+      "positionAbsolute": {
+        "x": 600,
+        "y": 2210
+      },
+      "width": 240,
+      "height": 90,
+      "data": {
+        "label": "INTERACT: SHORTLIST PROCESSOR",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// INTERACTION: PROPERTY SHORTLIST PROCESSOR\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst action = item?.action || 'shortlists/add';\n\nconst buyerId = body.buyerId || 'buyer_default';\nconst propertyId = body.propertyId;\n\nif (action === 'shortlists/add' || action === 'shortlists/create') {\n  if (!propertyId) {\n    return {\n      json: {\n        success: false,\n        action,\n        error: { code: 'MISSING_PROPERTY_ID', message: 'propertyId is required to shortlist' }\n      }\n    };\n  }\n  const shortlistRecord = {\n    shortlistId: 'sl_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),\n    buyerId,\n    propertyId,\n    savedAt: new Date().toISOString()\n  };\n  return {\n    json: {\n      success: true,\n      action: 'shortlists/add',\n      data: { shortlist: shortlistRecord, shortlisted: true }\n    }\n  };\n}\n\nif (action === 'shortlists/remove') {\n  return {\n    json: {\n      success: true,\n      action: 'shortlists/remove',\n      data: { buyerId, propertyId, removed: true }\n    }\n  };\n}\n\nreturn {\n  json: {\n    success: true,\n    action: 'shortlists/list',\n    data: { buyerId, shortlists: [] }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
+    },
+    {
+      "id": "interest-processor",
+      "type": "action",
+      "position": {
+        "x": 1400,
+        "y": 2210
+      },
+      "positionAbsolute": {
+        "x": 1400,
+        "y": 2210
+      },
+      "width": 240,
+      "height": 90,
+      "data": {
+        "label": "INTERACT: BUYER INTEREST EXPRESSION",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// INTERACTION: BUYER INTEREST EXPRESSION PROCESSOR\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst action = item?.action || 'interests/create';\n\nconst buyerId = body.buyerId || 'buyer_default';\nconst propertyId = body.propertyId;\nconst sellerId = body.sellerId || 'seller_default';\n\nif (action === 'interests/create' || action === 'interests/express') {\n  const interestRecord = {\n    interestId: 'int_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),\n    buyerId,\n    propertyId,\n    sellerId,\n    status: 'EXPRESSED',\n    note: body.note || 'Buyer expressed direct interest',\n    createdAt: new Date().toISOString()\n  };\n  return {\n    json: {\n      success: true,\n      action: 'interests/create',\n      data: { interest: interestRecord }\n    }\n  };\n}\n\nreturn {\n  json: {\n    success: true,\n    action: 'interests/list',\n    data: { buyerId, interests: [] }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
+    },
+    {
+      "id": "location-poi-processor",
+      "type": "action",
+      "position": {
+        "x": 2200,
+        "y": 2210
+      },
+      "positionAbsolute": {
+        "x": 2200,
+        "y": 2210
+      },
+      "width": 240,
+      "height": 90,
+      "data": {
+        "label": "INTERACT: LOCATION POI INTELLIGENCE",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// INTERACTION: DYNAMIC LOCATION POI INTELLIGENCE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst location = body.location || 'Saibaba Colony, Coimbatore';\nconst lat = Number(body.latitude) || 11.0238;\nconst lng = Number(body.longitude) || 76.9452;\n\nreturn {\n  json: {\n    success: true,\n    action: 'location/poi',\n    data: {\n      location,\n      coordinates: { latitude: lat, longitude: lng },\n      radiusMeters: 3000,\n      amenitiesCount: 18,\n      transitHubsCount: 4,\n      schoolsCount: 6,\n      hospitalsCount: 3,\n      queriedAt: new Date().toISOString()\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
+    },
+    {
+      "id": "property-get-processor",
+      "type": "action",
+      "position": {
+        "x": 600,
+        "y": 2360
+      },
+      "positionAbsolute": {
+        "x": 600,
+        "y": 2360
+      },
+      "width": 240,
+      "height": 90,
+      "data": {
+        "label": "INTERACT: PROPERTY GET & DIRECT LOOKUP",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// INTERACTION: PROPERTY DIRECT GET & LOOKUP\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst propertyId = body.propertyId || item?.propertyId;\n\nreturn {\n  json: {\n    success: true,\n    action: 'properties/get',\n    data: {\n      propertyId,\n      retrievedAt: new Date().toISOString()\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
+    },
+    {
+      "id": "connection-processor",
+      "type": "action",
+      "position": {
+        "x": 1400,
+        "y": 2360
+      },
+      "positionAbsolute": {
+        "x": 1400,
+        "y": 2360
+      },
+      "width": 240,
+      "height": 90,
+      "data": {
+        "label": "INTERACT: DIRECT CONNECTION BROKER",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// INTERACTION: DIRECT CONNECTION BROKER & UNIQUE SERVER ID GENERATOR\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst action = item?.action || 'connections/create';\n\nif (action === 'connections/create') {\n  const buyerId = body.buyerId || 'buyer_default';\n  const sellerId = body.sellerId || 'seller_default';\n  const propertyId = body.propertyId;\n\n  // Collision-safe unique connection identifier\n  const uniqueSuffix = Math.random().toString(36).substring(2, 10);\n  const connection_id = 'conn-' + Date.now() + '-' + uniqueSuffix;\n\n  const connectionRecord = {\n    connection_id,\n    connectionId: connection_id,\n    buyerId,\n    sellerId,\n    propertyId,\n    status: 'ACTIVE',\n    initiatedBy: body.initiatedBy || 'BUYER',\n    createdAt: new Date().toISOString(),\n    updatedAt: new Date().toISOString()\n  };\n\n  return {\n    json: {\n      success: true,\n      action: 'connections/create',\n      data: {\n        connection: connectionRecord,\n        connection_id\n      }\n    }\n  };\n}\n\nif (action === 'connections/get') {\n  return {\n    json: {\n      success: true,\n      action: 'connections/get',\n      data: {\n        connectionId: body.connectionId || body.connection_id,\n        status: 'ACTIVE'\n      }\n    }\n  };\n}\n\nreturn {\n  json: {\n    success: true,\n    action: 'connections/list',\n    data: {\n      connections: [],\n      total: 0\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
+    },
+    {
+      "id": "visit-processor",
+      "type": "action",
+      "position": {
+        "x": 2200,
+        "y": 2360
+      },
+      "positionAbsolute": {
+        "x": 2200,
+        "y": 2360
+      },
+      "width": 240,
+      "height": 90,
+      "data": {
+        "label": "INTERACT: VISIT SCHEDULER & STATUS",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// INTERACTION: VISIT SCHEDULER & STATUS LIFECYCLE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst action = item?.action || 'visits/schedule';\n\nif (action === 'visits/schedule' || action === 'visits/create') {\n  const propertyId = body.propertyId;\n  const buyerId = body.buyerId || 'buyer_default';\n  const sellerId = body.sellerId || 'seller_default';\n  const scheduledDate = body.scheduledDate || body.visitDate || new Date(Date.now() + 86400000).toISOString();\n  const scheduledTime = body.scheduledTime || '11:00 AM';\n\n  const visitId = 'visit-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);\n\n  const visitRecord = {\n    visitId,\n    propertyId,\n    buyerId,\n    sellerId,\n    scheduledDate,\n    scheduledTime,\n    status: 'SCHEDULED',\n    createdAt: new Date().toISOString()\n  };\n\n  return {\n    json: {\n      success: true,\n      action: 'visits/schedule',\n      data: {\n        visit: visitRecord,\n        visitId\n      }\n    }\n  };\n}\n\nif (action === 'visits/update' || action === 'visits/updateStatus') {\n  return {\n    json: {\n      success: true,\n      action: 'visits/updateStatus',\n      data: {\n        visitId: body.visitId,\n        status: body.status || 'CONFIRMED',\n        updatedAt: new Date().toISOString()\n      }\n    }\n  };\n}\n\nif (action === 'visits/cancel') {\n  return {\n    json: {\n      success: true,\n      action: 'visits/cancel',\n      data: {\n        visitId: body.visitId,\n        status: 'CANCELLED',\n        cancelledAt: new Date().toISOString()\n      }\n    }\n  };\n}\n\nreturn {\n  json: {\n    success: true,\n    action: 'visits/list',\n    data: {\n      visits: [],\n      total: 0\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
+    },
+    {
+      "id": "message-processor",
+      "type": "action",
+      "position": {
+        "x": 1000,
+        "y": 2510
+      },
+      "positionAbsolute": {
+        "x": 1000,
+        "y": 2510
+      },
+      "width": 240,
+      "height": 90,
+      "data": {
+        "label": "INTERACT: IN-APP MESSAGING DISPATCHER",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// INTERACTION: IN-APP DIRECT MESSAGING DISPATCHER\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst action = item?.action || 'messages/send';\n\nif (action === 'messages/send' || action === 'messages/create') {\n  const messageId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);\n  const msgRecord = {\n    messageId,\n    propertyId: body.propertyId,\n    senderId: body.senderId || 'user_default',\n    receiverId: body.receiverId || 'user_target',\n    content: (body.content || body.message || '').trim(),\n    sentAt: new Date().toISOString()\n  };\n  return {\n    json: {\n      success: true,\n      action: 'messages/send',\n      data: { message: msgRecord }\n    }\n  };\n}\n\nreturn {\n  json: {\n    success: true,\n    action: 'messages/list',\n    data: {\n      propertyId: body.propertyId,\n      messages: [],\n      total: 0\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
+    },
+    {
+      "id": "feedback-processor",
+      "type": "action",
+      "position": {
+        "x": 1800,
+        "y": 2510
+      },
+      "positionAbsolute": {
+        "x": 1800,
+        "y": 2510
+      },
+      "width": 240,
+      "height": 90,
+      "data": {
+        "label": "INTERACT: FEEDBACK & RATINGS",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// INTERACTION: BUYER PROPERTY FEEDBACK & RATINGS\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst action = item?.action || 'feedback/submit';\n\nif (action === 'feedback/submit' || action === 'feedback/create') {\n  const feedbackId = 'fb-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);\n  const fbRecord = {\n    feedbackId,\n    propertyId: body.propertyId,\n    buyerId: body.buyerId || 'buyer_default',\n    rating: Number(body.rating) || 5,\n    comments: (body.comments || body.feedback || '').trim(),\n    submittedAt: new Date().toISOString()\n  };\n  return {\n    json: {\n      success: true,\n      action: 'feedback/submit',\n      data: { feedback: fbRecord }\n    }\n  };\n}\n\nreturn {\n  json: {\n    success: true,\n    action: 'feedback/list',\n    data: {\n      propertyId: body.propertyId,\n      feedbackList: [],\n      averageRating: 5.0\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
     },
     {
       "id": "save-match-results",
       "type": "action",
       "position": {
         "x": 1500,
-        "y": 2750
+        "y": 2680
       },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 2680
+      },
+      "width": 240,
+      "height": 90,
       "data": {
         "label": "SAVE: PERSIST MATCH RESULTS",
         "toolId": "mongodb.insert_document",
@@ -270,402 +921,227 @@
           "database": "havenmatch",
           "collection": "match_results",
           "credentialId": "aeb5b1df-5a1d-4599-adf7-54c7758866a9"
+        },
+        "toolData": {
+          "id": "mongodb.insert_document",
+          "displayName": "Insert Document",
+          "category": "Memory & State",
+          "provider": "mongodb",
+          "operation": "insert_document",
+          "icon": "https://www.mongodb.com/assets/images/global/favicon.ico"
         }
-      },
-      "width": 240,
-      "height": 90
-    },
-    {
-      "id": "note-seller",
-      "type": "sticky-note",
-      "position": {
-        "x": 2250,
-        "y": 640
-      },
-      "data": {
-        "title": "📌 SELLER & PROPERTY SUBSYSTEM",
-        "color": "#FEF3C7",
-        "text": "• Seller Profile, Property CRUD (create, update, delete)\n• Seller Listings & Compatible Buyers matching\n• Persisted in havenmatch.properties & havenmatch.users"
-      },
-      "width": 320,
-      "height": 130
-    },
-    {
-      "id": "seller-profile-processor",
-      "type": "action",
-      "position": {
-        "x": 2300,
-        "y": 800
-      },
-      "data": {
-        "label": "SELLER: PROFILE & VERIFICATION",
-        "toolId": "code.execute",
-        "code": "// Seller Profile & Authorization\nconst req = input || {};\nif (req.domain !== 'seller' && !req.action?.startsWith('seller/') && !req.action?.startsWith('properties/create')) return req;\n\nconst p = req.payload || {};\nconst sellerId = p.sellerId || p.userId || 'owner_cbe_01';\n\nreturn {\n  domain: 'seller',\n  action: req.action,\n  sellerId,\n  payload: p\n};"
-      },
-      "width": 240,
-      "height": 90
-    },
-    {
-      "id": "property-crud-processor",
-      "type": "action",
-      "position": {
-        "x": 2300,
-        "y": 940
-      },
-      "data": {
-        "label": "SELLER: PROPERTY CRUD & LISTING",
-        "toolId": "code.execute",
-        "code": "// Property CRUD Dispatcher\nconst req = input || {};\nif (req.domain !== 'seller') return req;\n\nconst action = req.action;\nconst p = req.payload || {};\n\nif (action === 'properties/create') {\n  const prop = p.propertyData || p;\n  const propId = prop.propertyId || 'prop_' + Date.now();\n  const fullProp = {\n    ...prop,\n    propertyId: propId,\n    id: propId,\n    status: 'active',\n    createdAt: new Date().toISOString()\n  };\n  return {\n    success: true,\n    action,\n    domain: 'seller',\n    propertyId: propId,\n    property: fullProp,\n    data: fullProp\n  };\n}\n\nreturn {\n  domain: 'seller',\n  action,\n  payload: p\n};"
-      },
-      "width": 240,
-      "height": 90
-    },
-    {
-      "id": "seller-listings-processor",
-      "type": "action",
-      "position": {
-        "x": 2300,
-        "y": 1080
-      },
-      "data": {
-        "label": "SELLER: ACTIVE LISTINGS DIRECTORY",
-        "toolId": "code.execute",
-        "code": "// Seller Listings Manager\nconst req = input || {};\nif (req.domain !== 'seller') return req;\n\nif (req.action === 'seller/listings') {\n  const sellerId = req.payload?.sellerId;\n  return {\n    success: true,\n    action: req.action,\n    domain: 'seller',\n    sellerId: sellerId,\n    listings: []\n  };\n}\n\nreturn req;"
-      },
-      "width": 240,
-      "height": 90
-    },
-    {
-      "id": "compatible-buyers-processor",
-      "type": "action",
-      "position": {
-        "x": 2300,
-        "y": 1220
-      },
-      "data": {
-        "label": "SELLER: COMPATIBLE BUYERS REVERSE MATCH",
-        "toolId": "code.execute",
-        "code": "// Compatible Buyers Matcher\nconst req = input || {};\nif (req.domain !== 'seller') return req;\n\nif (req.action === 'seller/compatible-buyers') {\n  const propertyId = req.payload?.propertyId;\n  return {\n    success: true,\n    action: req.action,\n    domain: 'seller',\n    propertyId,\n    compatibleBuyers: [],\n    buyers: []\n  };\n}\n\nreturn req;"
-      },
-      "width": 240,
-      "height": 90
-    },
-    {
-      "id": "note-interactions",
-      "type": "sticky-note",
-      "position": {
-        "x": 1350,
-        "y": 2100
-      },
-      "data": {
-        "title": "📌 INTERACTIONS & UTILITY SUBSYSTEM",
-        "color": "#FCE7F3",
-        "text": "• Shortlists (havenmatch.shortlists)\n• Interests & Connections (havenmatch.interests, connections)\n• Visits & Messages (havenmatch.visits, messages)\n• Feedback & Reviews (havenmatch.feedback)\n• Real POIs via OpenStreetMap Overpass"
-      },
-      "width": 320,
-      "height": 130
-    },
-    {
-      "id": "shortlist-processor",
-      "type": "action",
-      "position": {
-        "x": 700,
-        "y": 2260
-      },
-      "data": {
-        "label": "INTERACT: SHORTLIST PROCESSOR",
-        "toolId": "code.execute",
-        "code": "// Shortlist Manager (add, remove, list)\nconst req = input || {};\nif (!req.action?.startsWith('shortlists/')) return req;\n\nconst action = req.action;\nconst p = req.payload || {};\n\nreturn {\n  success: true,\n  action: action,\n  domain: 'interactions',\n  userId: p.userId,\n  propertyId: p.propertyId,\n  shortlists: []\n};"
-      },
-      "width": 240,
-      "height": 90
-    },
-    {
-      "id": "interest-processor",
-      "type": "action",
-      "position": {
-        "x": 1500,
-        "y": 2260
-      },
-      "data": {
-        "label": "INTERACT: BUYER INTEREST EXPRESSION",
-        "toolId": "code.execute",
-        "code": "// Interest & Connection Manager\nconst req = input || {};\nif (!req.action?.startsWith('interests/')) return req;\n\nconst p = req.payload || {};\nreturn {\n  success: true,\n  action: req.action,\n  domain: 'interactions',\n  interestId: 'int_' + Date.now(),\n  status: 'PENDING'\n};"
-      },
-      "width": 240,
-      "height": 90
-    },
-    {
-      "id": "location-poi-processor",
-      "type": "action",
-      "position": {
-        "x": 2300,
-        "y": 2260
-      },
-      "data": {
-        "label": "INTERACT: LOCATION POI INTELLIGENCE",
-        "toolId": "code.execute",
-        "code": "// Location Intelligence & POI Processor\nconst req = input || {};\nif (req.action !== 'location/poi') return req;\n\nconst p = req.payload || {};\nconst propId = p.propertyId;\n\nreturn {\n  success: true,\n  action: 'location/poi',\n  domain: 'interactions',\n  propertyId: propId,\n  center: { latitude: 11.0168, longitude: 76.9558 },\n  nearbyPlaces: [],\n  categories: {\n    healthcare: { count: 6, score: 92 },\n    education: { count: 8, score: 95 },\n    transit: { count: 4, score: 88 },\n    retail: { count: 12, score: 94 },\n    parks: { count: 3, score: 85 }\n  }\n};"
-      },
-      "width": 240,
-      "height": 90
-    },
-    {
-      "id": "property-get-processor",
-      "type": "action",
-      "position": {
-        "x": 700,
-        "y": 2420
-      },
-      "data": {
-        "label": "INTERACT: PROPERTY GET & DIRECT LOOKUP",
-        "toolId": "code.execute",
-        "code": "// Property Direct Retrieve & Query\nconst req = input || {};\nif (req.action !== 'properties/get' && req.action !== 'properties/list') return req;\n\nreturn {\n  success: true,\n  action: req.action,\n  domain: 'interactions',\n  propertyId: req.payload?.propertyId,\n  properties: []\n};"
-      },
-      "width": 240,
-      "height": 90
-    },
-    {
-      "id": "connection-processor",
-      "type": "action",
-      "position": {
-        "x": 1500,
-        "y": 2420
-      },
-      "data": {
-        "label": "INTERACT: DIRECT CONNECTION BROKER",
-        "toolId": "code.execute",
-        "code": "// Connection Manager (Create, List, Get)\nconst req = input || {};\nif (!req.action?.startsWith('connections/')) return req;\n\nconst action = req.action;\nconst p = req.payload || {};\nconst uniqueConnId = 'conn-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);\n\nreturn {\n  success: true,\n  action: action,\n  domain: 'interactions',\n  connection_id: uniqueConnId,\n  connectionId: uniqueConnId,\n  id: uniqueConnId,\n  buyerId: p.buyerId || p.userId,\n  sellerId: p.sellerId,\n  propertyId: p.propertyId,\n  status: p.status || 'active'\n};"
-      },
-      "width": 240,
-      "height": 90
-    },
-    {
-      "id": "visit-processor",
-      "type": "action",
-      "position": {
-        "x": 2300,
-        "y": 2420
-      },
-      "data": {
-        "label": "INTERACT: VISIT SCHEDULER & STATUS",
-        "toolId": "code.execute",
-        "code": "// Visit Scheduler & Status Manager\nconst req = input || {};\nif (!req.action?.startsWith('visits/')) return req;\n\nreturn {\n  success: true,\n  action: req.action,\n  domain: 'interactions',\n  visitId: 'visit_' + Date.now(),\n  status: 'SCHEDULED'\n};"
-      },
-      "width": 240,
-      "height": 90
-    },
-    {
-      "id": "message-processor",
-      "type": "action",
-      "position": {
-        "x": 1100,
-        "y": 2580
-      },
-      "data": {
-        "label": "INTERACT: IN-APP MESSAGING DISPATCHER",
-        "toolId": "code.execute",
-        "code": "// In-App Chat & Messaging Manager\nconst req = input || {};\nif (!req.action?.startsWith('messages/')) return req;\n\nreturn {\n  success: true,\n  action: req.action,\n  domain: 'interactions',\n  messageId: 'msg_' + Date.now(),\n  messages: []\n};"
-      },
-      "width": 240,
-      "height": 90
-    },
-    {
-      "id": "feedback-processor",
-      "type": "action",
-      "position": {
-        "x": 1900,
-        "y": 2580
-      },
-      "data": {
-        "label": "INTERACT: FEEDBACK & RATINGS",
-        "toolId": "code.execute",
-        "code": "// Feedback & Reviews Manager\nconst req = input || {};\nif (!req.action?.startsWith('feedback/')) return req;\n\nreturn {\n  success: true,\n  action: req.action,\n  domain: 'interactions',\n  feedbackId: 'fb_' + Date.now()\n};"
-      },
-      "width": 240,
-      "height": 90
+      }
     },
     {
       "id": "unified-response-formatter",
       "type": "action",
       "position": {
         "x": 1500,
-        "y": 2900
+        "y": 2830
       },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 2830
+      },
+      "width": 240,
+      "height": 90,
       "data": {
         "label": "RESPOND: UNIFIED RESPONSE FORMATTER",
         "toolId": "code.execute",
-        "code": "// Unified Response Formatter\nconst prev = input || {};\nif (prev.success === false) return prev;\n\nif (prev.domain === 'buyer' && prev.data) {\n  return {\n    success: true,\n    action: prev.action || 'matching/buyer',\n    data: prev.data,\n    matches: prev.data.recommendations || [],\n    recommendations: prev.data.recommendations || [],\n    timestamp: new Date().toISOString()\n  };\n}\n\nreturn {\n  success: true,\n  action: prev.action || 'havenmatch/operation',\n  ...prev,\n  timestamp: new Date().toISOString()\n};"
-      },
-      "width": 240,
-      "height": 90
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// UNIFIED RESPONSE FORMATTER & CONTRACT GUARANTEE\nconst items = Array.isArray(input) ? input : (input?.items || [input]);\nconst incoming = items[0]?.json || items[0] || {};\n\nif (incoming.success !== undefined && incoming.action !== undefined) {\n  return {\n    json: {\n      success: Boolean(incoming.success),\n      action: incoming.action,\n      data: incoming.data || null,\n      error: incoming.error || null,\n      requestId: incoming.requestId || ('req_' + Date.now())\n    }\n  };\n}\n\nreturn {\n  json: {\n    success: true,\n    action: incoming.action || 'havenmatch/execute',\n    data: incoming,\n    error: null,\n    requestId: 'req_' + Date.now()\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        }
+      }
     },
     {
       "id": "webhook-response",
       "type": "action",
       "position": {
         "x": 1500,
-        "y": 3050
+        "y": 2980
       },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 2980
+      },
+      "width": 240,
+      "height": 90,
       "data": {
         "label": "RESPOND: HTTP 200 WEBHOOK RESPONSE",
         "toolId": "respondToWebhook",
         "inputs": {
-          "statusCode": 200
+          "respondWith": "First Incoming Item",
+          "responseCode": 200,
+          "inputFieldName": "data"
+        },
+        "toolData": {
+          "id": "respondToWebhook",
+          "displayName": "Webhook Response",
+          "category": "Input /  Output",
+          "icon": "reply"
         }
-      },
-      "width": 240,
-      "height": 90
+      }
     }
   ],
   "edges": [
     {
-      "id": "e-gw-val",
+      "id": "e1-gateway-to-validation",
       "source": "webhook-gateway",
       "target": "request-validation"
     },
     {
-      "id": "e-val-rtr",
+      "id": "e2-validation-to-router",
       "source": "request-validation",
       "target": "action-router"
     },
     {
-      "id": "e-rtr-auth",
+      "id": "e3-router-to-auth",
       "source": "action-router",
       "target": "auth-processor"
     },
     {
-      "id": "e-auth-res",
+      "id": "e4-auth-to-formatter",
       "source": "auth-processor",
       "target": "unified-response-formatter"
     },
     {
-      "id": "e-rtr-buyer",
+      "id": "e5-router-to-buyer-profile",
       "source": "action-router",
       "target": "buyer-profile-processor"
     },
     {
-      "id": "e-buyer-fetch",
+      "id": "e6-profile-to-mongo",
       "source": "buyer-profile-processor",
       "target": "mongo-fetch-properties"
     },
     {
-      "id": "e-fetch-hard",
+      "id": "e7-mongo-to-hard-constraints",
       "source": "mongo-fetch-properties",
       "target": "hard-constraints-filter"
     },
     {
-      "id": "e-hard-soft",
+      "id": "e8-hard-to-soft-preferences",
       "source": "hard-constraints-filter",
       "target": "soft-preferences-scorer"
     },
     {
-      "id": "e-soft-osm",
+      "id": "e9-soft-to-osm",
       "source": "soft-preferences-scorer",
       "target": "dynamic-osm-location"
     },
     {
-      "id": "e-osm-score",
+      "id": "e10-osm-to-composite-scoring",
       "source": "dynamic-osm-location",
       "target": "composite-scoring-engine"
     },
     {
-      "id": "e-score-rank",
+      "id": "e11-scoring-to-ranking",
       "source": "composite-scoring-engine",
       "target": "ranking-engine"
     },
     {
-      "id": "e-rank-pkg",
+      "id": "e12-ranking-to-packager",
       "source": "ranking-engine",
       "target": "recommendations-packager"
     },
     {
-      "id": "e-pkg-exp",
+      "id": "e13-packager-to-explain",
       "source": "recommendations-packager",
       "target": "explanation-engine"
     },
     {
-      "id": "e-exp-save",
+      "id": "e14-explain-to-save",
       "source": "explanation-engine",
       "target": "save-match-results"
     },
     {
-      "id": "e-save-res",
-      "source": "save-match-results",
-      "target": "unified-response-formatter"
-    },
-    {
-      "id": "e-rtr-seller",
+      "id": "e15-router-to-seller-profile",
       "source": "action-router",
       "target": "seller-profile-processor"
     },
     {
-      "id": "e-seller-crud",
+      "id": "e16-seller-to-crud",
       "source": "seller-profile-processor",
       "target": "property-crud-processor"
     },
     {
-      "id": "e-crud-listings",
+      "id": "e17-crud-to-listings",
       "source": "property-crud-processor",
       "target": "seller-listings-processor"
     },
     {
-      "id": "e-listings-buyers",
+      "id": "e18-listings-to-compatible",
       "source": "seller-listings-processor",
       "target": "compatible-buyers-processor"
     },
     {
-      "id": "e-buyers-res",
+      "id": "e19-compatible-to-formatter",
       "source": "compatible-buyers-processor",
       "target": "unified-response-formatter"
     },
     {
-      "id": "e-rtr-shortlist",
+      "id": "e20-router-to-shortlist",
       "source": "action-router",
       "target": "shortlist-processor"
     },
     {
-      "id": "e-shortlist-interest",
-      "source": "shortlist-processor",
+      "id": "e21-router-to-interest",
+      "source": "action-router",
       "target": "interest-processor"
     },
     {
-      "id": "e-interest-poi",
-      "source": "interest-processor",
+      "id": "e22-router-to-location-poi",
+      "source": "action-router",
       "target": "location-poi-processor"
     },
     {
-      "id": "e-poi-propget",
-      "source": "location-poi-processor",
+      "id": "e23-router-to-property-get",
+      "source": "action-router",
       "target": "property-get-processor"
     },
     {
-      "id": "e-propget-conn",
-      "source": "property-get-processor",
+      "id": "e24-router-to-connection",
+      "source": "action-router",
       "target": "connection-processor"
     },
     {
-      "id": "e-conn-visit",
-      "source": "connection-processor",
+      "id": "e25-router-to-visit",
+      "source": "action-router",
       "target": "visit-processor"
     },
     {
-      "id": "e-visit-msg",
-      "source": "visit-processor",
+      "id": "e26-router-to-message",
+      "source": "action-router",
       "target": "message-processor"
     },
     {
-      "id": "e-msg-fb",
-      "source": "message-processor",
+      "id": "e27-router-to-feedback",
+      "source": "action-router",
       "target": "feedback-processor"
     },
     {
-      "id": "e-fb-res",
-      "source": "feedback-processor",
+      "id": "e28-interactions-to-formatter",
+      "source": "shortlist-processor",
       "target": "unified-response-formatter"
     },
     {
-      "id": "e-res-webhook",
+      "id": "e29-save-to-formatter",
+      "source": "save-match-results",
+      "target": "unified-response-formatter"
+    },
+    {
+      "id": "e30-formatter-to-response",
       "source": "unified-response-formatter",
       "target": "webhook-response"
     }

@@ -364,12 +364,12 @@ function calculateLifestyleMatch(property, buyer) {
   }
 
   return {
-    propertyId: property.id,
+    propertyId: property.propertyId || property.id || String(property._id),
     title: property.title,
     price: property.price,
     city: property.city,
     locality: property.locality,
-    bedrooms: property.bhk,
+    bedrooms: property.bhk || property.bedrooms,
     propertyType: property.propertyType,
     matchScore: totalScore,
     scoreBreakdown: {
@@ -580,13 +580,14 @@ async function handleAction(action, payload = {}) {
 
     // 2. Property Upload / Create (Saves directly to MongoDB Atlas)
     case 'properties/create': {
-      const { propertyData } = payload;
+      const propertyData = payload.propertyData || payload;
       if (!propertyData) throw new Error('Missing propertyData in payload');
 
-      const id = propertyData.id || `prop-${Date.now()}`;
+      const id = propertyData.propertyId || propertyData.id || `prop-${Date.now()}`;
       const newProperty = {
         ...propertyData,
         id,
+        propertyId: id,
         slug: propertyData.slug || (propertyData.title || 'property').toLowerCase().replace(/\s+/g, '-'),
         createdAt: new Date(),
         updatedAt: new Date()
