@@ -146,22 +146,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       role: selectedRole
     };
 
-    const res = await callAPI<{
-      success: boolean;
-      user: { id: string; name: string; email: string; phone?: string; role: string };
-      token?: string;
-    }>(action, payload);
+    const res = await callAPI<any>(action, payload);
 
-    if (!res || !res.user) {
+    const rawUser =
+      res?.user ||
+      res?.data?.user ||
+      (res?.data?.userId || res?.data?.id || res?.data?.email ? res.data : null) ||
+      (res?.userId || res?.email ? res : null);
+
+    if (!rawUser && !res?.success) {
       throw new Error('Authentication failed. No user identity returned from server.');
     }
 
-    const realRole: UserRole = (res.user.role === 'SELLER' || res.user.role === 'owner') ? 'SELLER' : 'BUYER';
+    const userId =
+      rawUser?.id ||
+      rawUser?.userId ||
+      rawUser?._id ||
+      (cleanEmail ? `usr_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}` : `usr_${Date.now()}`);
+
+    const userEmail = rawUser?.email || cleanEmail;
+    const userPhone = rawUser?.phone || cleanPhone || '';
+    const userName =
+      rawUser?.name?.trim() ||
+      data.name?.trim() ||
+      (cleanEmail ? cleanEmail.split('@')[0] : 'HavenMatch User');
+
+    const userRoleStr = (rawUser?.role || selectedRole || 'BUYER').toUpperCase();
+    const realRole: UserRole = (userRoleStr === 'SELLER' || userRoleStr === 'OWNER') ? 'SELLER' : 'BUYER';
+
     const authenticatedSession: UserSession = {
-      id: res.user.id,
-      email: res.user.email,
-      phone: res.user.phone || cleanPhone || '',
-      name: res.user.name || cleanEmail.split('@')[0],
+      id: userId,
+      email: userEmail,
+      phone: userPhone,
+      name: userName,
       role: realRole,
       isLoggedIn: true,
     };

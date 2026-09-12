@@ -1,7 +1,7 @@
 {
   "_platform": "agentbuilder",
   "_version": 1,
-  "_exportedAt": "2026-09-12T19:23:46.984Z",
+  "_exportedAt": "2026-09-12T19:34:10.889Z",
   "_fingerprint": "YWN0aW9uOmNvZGUuZXhlY3V0ZXxhY3Rpb246Y29kZS5leGVjdXRlfGFjdGlvbjpj",
   "name": "model 1.0",
   "nodes": [
@@ -426,7 +426,7 @@
         "inputs": {
           "language": "javascript",
           "mode": "all",
-          "code": "// 5. AUTHENTICATION MANAGER\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst action = item?.action || '';\n\nconst role = (body.role || 'BUYER').toUpperCase();\nconst intent = body.intent || (role === 'SELLER' ? 'SELL' : 'BUY');\n\nreturn {\n  json: {\n    success: true,\n    action,\n    data: {\n      userId: body.userId || ('usr_' + Date.now()),\n      email: body.email || '',\n      name: body.name || 'HavenMatch User',\n      role,\n      intent,\n      token: 'hm_session_' + Buffer.from(body.email + ':' + Date.now()).toString('base64'),\n      verified: true\n    },\n    requestId: item.requestId\n  }\n};"
+          "code": "// 5. AUTHENTICATION MANAGER\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst action = item?.action || 'auth/login';\n\nconst role = (body.role || 'BUYER').toUpperCase();\nconst intent = body.intent || (role === 'SELLER' ? 'SELL' : 'BUY');\nconst cleanEmail = (body.email || '').trim().toLowerCase();\nconst name = body.name?.trim() || (cleanEmail ? cleanEmail.split('@')[0] : 'HavenMatch User');\nconst userId = body.userId || ('usr_' + Date.now());\nconst token = 'hm_session_' + Buffer.from((cleanEmail || userId) + ':' + Date.now()).toString('base64');\n\nconst userInfo = {\n  id: userId,\n  userId: userId,\n  email: cleanEmail,\n  phone: body.phone || '',\n  name: name,\n  role: role,\n  intent: intent\n};\n\nreturn {\n  json: {\n    success: true,\n    action: action,\n    user: userInfo,\n    data: {\n      user: userInfo,\n      ...userInfo,\n      token: token,\n      verified: true\n    },\n    token: token,\n    requestId: item.requestId || ('req_' + Date.now())\n  }\n};"
         },
         "toolData": {
           "id": "code.execute",
