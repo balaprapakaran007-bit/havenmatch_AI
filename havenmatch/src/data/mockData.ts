@@ -1286,7 +1286,7 @@ export const INITIAL_PROPERTIES: Property[] = [
     featured: true,
     seller: {
       id: 'sel-01',
-      name: 'Dr. K. Senthil Kumar',
+      name: 'Property Owner',
       role: 'Individual Owner',
       phone: '+91 98422 14890',
       verified: true,
@@ -2253,7 +2253,7 @@ export const MOCK_NEARBY_PLACES: Record<string, NearbyPlace[]> = {
 export const MOCK_COMPATIBLE_BUYERS: CompatibleBuyer[] = [
   {
     id: 'buy-match-01',
-    name: 'Akash & Priya Sundaram',
+    name: 'Akash Sundaram',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
     matchPercentage: 94,
     intent: 'BUY',

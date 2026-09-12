@@ -50,7 +50,15 @@ interface AppContextType {
   setBgTheme: (theme: BackgroundTheme) => void;
   cycleBgTheme: () => void;
   userSession: UserSession | null;
-  login: (data: { email: string; phone?: string; name?: string; password?: string; role?: UserRole }) => Promise<void>;
+  login: (data: {
+    email: string;
+    phone?: string;
+    name?: string;
+    password?: string;
+    role?: UserRole;
+    isSignUp?: boolean;
+    isGoogle?: boolean;
+  }) => Promise<void>;
   logout: () => void;
   selectedPropertyId: string | null;
   navigateToProperty: (propertyId: string) => void;
@@ -109,56 +117,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [visitTargetPropertyId, setVisitTargetPropertyId] = useState<string | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
 
-  const login = async (data: { email: string; phone?: string; name?: string; password?: string; role?: UserRole }) => {
+  const login = async (data: {
+    email: string;
+    phone?: string;
+    name?: string;
+    password?: string;
+    role?: UserRole;
+    isSignUp?: boolean;
+    isGoogle?: boolean;
+  }) => {
     const selectedRole = data.role || role;
     const cleanEmail = (data.email || '').trim().toLowerCase();
     const cleanPhone = (data.phone || '').trim();
 
-    // Default friendly name from email or input
-    const fallbackName = data.name?.trim() || (cleanEmail ? cleanEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : (selectedRole === 'BUYER' ? 'Verified Buyer' : 'Property Owner'));
+    if (!cleanEmail && !cleanPhone) {
+      throw new Error('Please enter a valid email address or mobile number.');
+    }
 
-    let session: UserSession = {
-      email: cleanEmail || `${cleanPhone.replace(/\D/g, '')}@havenmatch.ai`,
-      phone: cleanPhone || '+91 98421 88402',
-      name: fallbackName,
-      role: selectedRole,
+    const action = data.isGoogle
+      ? 'auth/google'
+      : (data.isSignUp ? 'auth/register' : 'auth/login');
+
+    const payload = {
+      email: cleanEmail,
+      phone: cleanPhone,
+      name: data.name?.trim(),
+      password: data.password,
+      role: selectedRole
+    };
+
+    const res = await callAPI<{
+      success: boolean;
+      user: { id: string; name: string; email: string; phone?: string; role: string };
+      token?: string;
+    }>(action, payload);
+
+    if (!res || !res.user) {
+      throw new Error('Authentication failed. No user identity returned from server.');
+    }
+
+    const realRole: UserRole = (res.user.role === 'SELLER' || res.user.role === 'owner') ? 'SELLER' : 'BUYER';
+    const authenticatedSession: UserSession = {
+      id: res.user.id,
+      email: res.user.email,
+      phone: res.user.phone || cleanPhone || '',
+      name: res.user.name || cleanEmail.split('@')[0],
+      role: realRole,
       isLoggedIn: true,
     };
 
-    try {
-      // Sync login with MongoDB Atlas database via dispatcher
-      const res = await callAPI<{ success: boolean; user: { id: string; name: string; email: string; phone: string; role: UserRole } }>(
-        'auth/login',
-        {
-          email: cleanEmail,
-          phone: cleanPhone,
-          name: data.name?.trim(),
-          password: data.password,
-          role: selectedRole
-        }
-      );
+    setUserSession(authenticatedSession);
+    saveSession(authenticatedSession);
+    setRole(realRole);
 
-      if (res?.user) {
-        session = {
-          email: res.user.email || session.email,
-          phone: res.user.phone || session.phone,
-          name: res.user.name || session.name,
-          role: res.user.role || selectedRole,
-          isLoggedIn: true
-        };
-      }
-    } catch (err: any) {
-      console.warn('[Auth] Backend sync note:', err.message);
-      // If error is an explicit auth error (e.g. incorrect password), throw it so AuthPage can display
-      if (err.message && err.message.toLowerCase().includes('password')) {
-        throw err;
-      }
-    }
-
-    setUserSession(session);
-    saveSession(session);
-    setRole(session.role);
-    if (session.role === 'SELLER') {
+    if (realRole === 'SELLER') {
       setActiveView('seller_portal');
     } else {
       setActiveView('landing');

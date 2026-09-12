@@ -38,8 +38,8 @@ export const VisitSchedulerModal: React.FC<VisitSchedulerModalProps> = ({
         propertyBhk: property.bhk,
         date: `Sep ${selectedDay}, 2026`,
         timeSlot: selectedSlot,
-        buyerName: userSession?.name || 'Priya S.',
-        buyerPhone: userSession?.phone || '+91 98421 88402',
+        buyerName: userSession?.name || (userSession?.email ? userSession.email.split('@')[0] : 'Verified Buyer'),
+        buyerPhone: userSession?.phone || '',
         sellerName: property.seller?.name || 'Property Owner',
         notes: message
       });

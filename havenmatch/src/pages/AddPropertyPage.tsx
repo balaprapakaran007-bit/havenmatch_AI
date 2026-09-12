@@ -44,8 +44,8 @@ export const AddPropertyPage: React.FC = () => {
   const [reraId, setReraId] = useState('TN/11/Building/0244/2024');
   const [vastuCompliant, setVastuCompliant] = useState(true);
   const [description, setDescription] = useState('');
-  const [ownerName, setOwnerName] = useState('Dr. K. Senthil Kumar');
-  const [ownerPhone, setOwnerPhone] = useState('+91 94432 11984');
+  const [ownerName, setOwnerName] = useState(userSession?.name || '');
+  const [ownerPhone, setOwnerPhone] = useState(userSession?.phone || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Real user-uploaded photos (starts completely empty for new listing)

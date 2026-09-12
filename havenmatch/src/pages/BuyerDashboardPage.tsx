@@ -49,7 +49,7 @@ export const BuyerDashboardPage: React.FC = () => {
   }, []);
 
   const savedProperties = allProperties.filter((p) => savedPropertyIds.includes(p.id));
-  const userName = userSession?.name || 'Priya';
+  const userName = userSession?.name || (userSession?.email ? userSession.email.split('@')[0] : 'Home Buyer');
 
   return (
     <div className="min-h-screen bg-[#FAF9F6]">

@@ -522,7 +522,7 @@ export const LandingPage: React.FC = () => {
               </div>
               <div className="p-3 bg-slate-950/80 rounded-xl space-y-2 border border-slate-800">
                 <div className="flex justify-between text-[11px]">
-                  <span>Buyer: Akash & Priya</span>
+                  <span>Buyer: Verified Buyer</span>
                   <span className="text-orange-400 font-bold">94% Match</span>
                 </div>
                 <div className="text-[10px] text-slate-400">

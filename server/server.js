@@ -397,9 +397,8 @@ async function handleAction(action, payload = {}) {
 
   switch (action) {
     // 1. User Authentication (Login / Register / Profile)
-    case 'auth/login':
-    case 'auth/register': {
-      const { email, phone, name, password, role, intent } = payload;
+    case 'auth/login': {
+      const { email, phone, password, role } = payload;
       const cleanEmail = (email || '').trim().toLowerCase();
       const cleanPhone = (phone || '').trim();
 
@@ -408,7 +407,7 @@ async function handleAction(action, payload = {}) {
       }
 
       // Query database for existing user
-      let user = await db.collection('users').findOne({
+      const user = await db.collection('users').findOne({
         $or: [
           ...(cleanEmail ? [{ email: cleanEmail }] : []),
           ...(cleanPhone ? [{ phone: cleanPhone }] : [])
@@ -416,54 +415,129 @@ async function handleAction(action, payload = {}) {
       });
 
       if (!user) {
-        // Create new user
-        const { hash, salt } = password ? hashPassword(password) : { hash: '', salt: '' };
-        const userDisplayName = name?.trim() || formatNameFromEmail(cleanEmail);
+        throw new Error('No registered account found with this email. Please sign up first.');
+      }
 
+      // If password is provided, verify it (unless user was created without password)
+      if (password && user.passwordHash && user.salt) {
+        const isValid = verifyPassword(password, user.passwordHash, user.salt);
+        if (!isValid) {
+          throw new Error('Incorrect password. Please verify your credentials and try again.');
+        }
+      }
+
+      // Update last login
+      const updates = { lastLogin: new Date() };
+      if (role && role !== user.role) updates.role = role;
+      await db.collection('users').updateOne({ _id: user._id }, { $set: updates });
+
+      console.log(`[Auth] User authenticated successfully: ${user.name} <${user.email || user.phone}> (${user.role})`);
+      const token = `hm_${Buffer.from(`${user.userId}:${Date.now()}`).toString('base64')}`;
+
+      return {
+        success: true,
+        action,
+        token,
+        user: {
+          id: user.userId || String(user._id),
+          email: user.email,
+          phone: user.phone,
+          name: user.name,
+          role: user.role || 'BUYER',
+          intent: user.intent
+        }
+      };
+    }
+
+    case 'auth/register':
+    case 'auth/signup': {
+      const { email, phone, name, password, role, intent } = payload;
+      const cleanEmail = (email || '').trim().toLowerCase();
+      const cleanPhone = (phone || '').trim();
+
+      if (!cleanEmail && !cleanPhone) {
+        throw new Error('Please provide an email address or mobile number.');
+      }
+
+      // Check if user already exists
+      const existingUser = await db.collection('users').findOne({
+        $or: [
+          ...(cleanEmail ? [{ email: cleanEmail }] : []),
+          ...(cleanPhone ? [{ phone: cleanPhone }] : [])
+        ]
+      });
+
+      if (existingUser) {
+        throw new Error('An account with this email or mobile number already exists. Please sign in.');
+      }
+
+      // Create new user
+      const { hash, salt } = password ? hashPassword(password) : { hash: '', salt: '' };
+      const userDisplayName = name?.trim() || formatNameFromEmail(cleanEmail);
+
+      const newUser = {
+        userId: `usr-${Date.now()}`,
+        name: userDisplayName,
+        email: cleanEmail,
+        phone: cleanPhone || '',
+        passwordHash: hash,
+        salt: salt,
+        role: role || 'BUYER',
+        intent: intent || (role === 'SELLER' ? 'SELL' : 'BUY'),
+        createdAt: new Date(),
+        lastLogin: new Date()
+      };
+
+      const insertRes = await db.collection('users').insertOne(newUser);
+      console.log(`[Auth] Registered new user in Atlas: ${userDisplayName} <${cleanEmail}> (${newUser.role})`);
+
+      const token = `hm_${Buffer.from(`${newUser.userId}:${Date.now()}`).toString('base64')}`;
+
+      return {
+        success: true,
+        action,
+        token,
+        user: {
+          id: newUser.userId || String(insertRes.insertedId),
+          email: newUser.email,
+          phone: newUser.phone,
+          name: newUser.name,
+          role: newUser.role,
+          intent: newUser.intent
+        }
+      };
+    }
+
+    case 'auth/google': {
+      const { email, name, role } = payload;
+      const cleanEmail = (email || '').trim().toLowerCase();
+      if (!cleanEmail) throw new Error('Google email is required.');
+
+      let user = await db.collection('users').findOne({ email: cleanEmail });
+      if (!user) {
+        const userDisplayName = name?.trim() || formatNameFromEmail(cleanEmail);
         const newUser = {
           userId: `usr-${Date.now()}`,
           name: userDisplayName,
           email: cleanEmail,
-          phone: cleanPhone || '+91 98421 88402',
-          passwordHash: hash,
-          salt: salt,
+          phone: '',
+          passwordHash: '',
+          salt: '',
           role: role || 'BUYER',
-          intent: intent || (role === 'SELLER' ? 'SELL' : 'BUY'),
+          intent: role === 'SELLER' ? 'SELL' : 'BUY',
+          authProvider: 'google',
           createdAt: new Date(),
           lastLogin: new Date()
         };
-
         const insertRes = await db.collection('users').insertOne(newUser);
         user = { ...newUser, _id: insertRes.insertedId };
-        console.log(`[Auth] Registered new user in Atlas: ${userDisplayName} <${cleanEmail}> (${user.role})`);
+        console.log(`[Auth] Registered Google user in Atlas: ${userDisplayName} <${cleanEmail}>`);
       } else {
-        // If password is provided, verify it (unless user was created without password)
-        if (password && user.passwordHash && user.salt) {
-          const isValid = verifyPassword(password, user.passwordHash, user.salt);
-          if (!isValid) {
-            throw new Error('Incorrect password. Please verify your credentials and try again.');
-          }
-        } else if (password && (!user.passwordHash || !user.salt)) {
-          // Set password on first password-based login
-          const { hash, salt } = hashPassword(password);
-          await db.collection('users').updateOne(
-            { _id: user._id },
-            { $set: { passwordHash: hash, salt } }
-          );
-        }
-
-        // Update last login and role if specified
-        const updates = { lastLogin: new Date() };
-        if (role) updates.role = role;
-        if (name && name !== user.name) updates.name = name;
-
-        await db.collection('users').updateOne({ _id: user._id }, { $set: updates });
-        user = { ...user, ...updates };
-        console.log(`[Auth] User authenticated successfully: ${user.name} <${user.email || user.phone}> (${user.role})`);
+        await db.collection('users').updateOne({ _id: user._id }, { $set: { lastLogin: new Date() } });
+        console.log(`[Auth] Google user authenticated: ${user.name} <${user.email}>`);
       }
 
       const token = `hm_${Buffer.from(`${user.userId}:${Date.now()}`).toString('base64')}`;
-
       return {
         success: true,
         action,

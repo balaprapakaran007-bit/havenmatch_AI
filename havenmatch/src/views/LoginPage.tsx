@@ -70,7 +70,7 @@ export const LoginPage: React.FC = () => {
 
   const fillDemoSeller = () => {
     setRole('SELLER');
-    setEmail('dr.senthil@havenmatch.ai');
+    setEmail('owner@havenmatch.ai');
     setPhone('9840011223');
     setPassword('ownerverified2026');
     setErrorMsg('');
@@ -288,7 +288,7 @@ export const LoginPage: React.FC = () => {
                   <span className="text-xs font-bold text-orange-950">Demo Owner</span>
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-200 text-orange-900 font-bold">Auto-Fill</span>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-0.5">Dr. Senthil Kumar • Peelamedu</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Property Owner • Peelamedu</p>
               </button>
             </div>
           </div>

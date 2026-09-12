@@ -11,13 +11,12 @@ import {
   ShieldCheck,
   CheckCircle2,
   Loader2,
-  Zap,
-  Building2
+  AlertCircle
 } from 'lucide-react';
 
 export const AuthPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login, showToast, setRole } = useApp();
+  const { login, showToast } = useApp();
 
   const [mode, setMode] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
   const [activeTab, setActiveTab] = useState<'EMAIL' | 'MOBILE'>('EMAIL');
@@ -27,26 +26,51 @@ export const AuthPage: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [selectedRole, setSelectedRole] = useState<'BUYER' | 'SELLER'>('BUYER');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const executeLogin = async (targetEmail?: string, targetPhone?: string, targetName?: string, targetRole?: 'BUYER' | 'SELLER') => {
+  const executeLogin = async (
+    targetEmail?: string,
+    targetPhone?: string,
+    targetName?: string,
+    targetRole?: 'BUYER' | 'SELLER',
+    isGoogle = false
+  ) => {
+    setErrorMessage(null);
+
+    const emailToUse = (targetEmail || (activeTab === 'EMAIL' ? email.trim() : '')).toLowerCase();
+    const phoneToUse = targetPhone || (activeTab === 'MOBILE' ? phone.trim() : '');
+    const finalRole = targetRole || selectedRole;
+    const finalName = targetName || fullName.trim() || undefined;
+
+    if (!isGoogle && !emailToUse && !phoneToUse) {
+      setErrorMessage('Please enter your email address or mobile number.');
+      return;
+    }
+
+    if (!isGoogle && !password) {
+      setErrorMessage('Please enter your password.');
+      return;
+    }
+
+    if (mode === 'SIGNUP' && !isGoogle && !finalName) {
+      setErrorMessage('Please enter your full name.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const emailToUse = targetEmail || (activeTab === 'EMAIL' ? email.trim() : '');
-      const phoneToUse = targetPhone || (activeTab === 'MOBILE' ? phone.trim() : '');
-      const finalEmail = emailToUse || (phoneToUse ? `${phoneToUse.replace(/\D/g, '')}@havenmatch.ai` : 'akash@havenmatch.ai');
-      const finalRole = targetRole || selectedRole;
-      const finalName = targetName || fullName.trim() || undefined;
-
       await login({
-        email: finalEmail,
-        phone: phoneToUse || '+91 98401 23456',
+        email: emailToUse,
+        phone: phoneToUse,
         name: finalName,
-        password: password || 'buyer123',
-        role: finalRole
+        password: password,
+        role: finalRole,
+        isSignUp: mode === 'SIGNUP',
+        isGoogle
       });
 
-      showToast(mode === 'LOGIN' ? `Welcome back to HavenMatch AI!` : 'Account created successfully!');
+      showToast(mode === 'LOGIN' ? 'Welcome back to HavenMatch AI!' : 'Account created successfully!');
 
       if (finalRole === 'SELLER') {
         navigate('/owner/dashboard');
@@ -54,9 +78,8 @@ export const AuthPage: React.FC = () => {
         navigate('/choose-role');
       }
     } catch (err: any) {
-      console.warn('[AuthPage] Login issue:', err.message);
-      showToast(err.message || 'Authenticated successfully');
-      navigate(selectedRole === 'SELLER' ? '/owner/dashboard' : '/choose-role');
+      console.warn('[AuthPage] Authentication error:', err.message);
+      setErrorMessage(err.message || 'Authentication failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
@@ -67,18 +90,16 @@ export const AuthPage: React.FC = () => {
     executeLogin();
   };
 
-  const handleQuickDemoBuyer = () => {
-    setSelectedRole('BUYER');
-    executeLogin('akash@havenmatch.ai', '+91 98401 23456', 'Akash Sundaram', 'BUYER');
-  };
-
-  const handleQuickDemoSeller = () => {
-    setSelectedRole('SELLER');
-    executeLogin('senthil.k@gmail.com', '+91 98422 11223', 'Dr. K. Senthil Kumar', 'SELLER');
-  };
-
   const handleGoogleLogin = () => {
-    executeLogin('priya.sundaram@gmail.com', '+91 98421 88402', 'Priya Sundaram', selectedRole);
+    const userPromptEmail = window.prompt('Enter your Google Account email address:');
+    if (!userPromptEmail || !userPromptEmail.trim()) {
+      return;
+    }
+    const cleanGoogleEmail = userPromptEmail.trim().toLowerCase();
+    const defaultGoogleName = cleanGoogleEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const userPromptName = window.prompt('Enter your display name:', defaultGoogleName) || defaultGoogleName;
+    
+    executeLogin(cleanGoogleEmail, undefined, userPromptName, selectedRole, true);
   };
 
   return (
@@ -111,9 +132,8 @@ export const AuthPage: React.FC = () => {
               <span>Safe. Secure. Transparent.</span>
             </div>
             <p className="text-sm font-medium text-slate-200 leading-relaxed">
-              "HavenMatch found our dream home in Coimbatore in 3 days with perfect commute and water infrastructure."
+              "Find your home based on true lifestyle fit — commute intelligence, water infrastructure, and direct owner connections."
             </p>
-            <span className="text-xs text-orange-400 font-bold block">— Priya & Vignesh, Saravanampatti</span>
           </div>
         </div>
 
@@ -135,15 +155,23 @@ export const AuthPage: React.FC = () => {
               {mode === 'LOGIN' ? 'Welcome back' : 'Create your account'}
             </h2>
             <p className="text-sm text-slate-500 mt-1">
-              {mode === 'LOGIN' ? 'Sign in to continue your lifestyle real estate journey' : 'Start your personalized lifestyle match experience'}
+              {mode === 'LOGIN' ? 'Sign in with your registered HavenMatch account' : 'Start your personalized lifestyle match experience'}
             </p>
           </div>
+
+          {/* Error Message Box */}
+          {errorMessage && (
+            <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
 
           {/* Email / Mobile Switcher Tabs */}
           <div className="flex p-1 rounded-xl bg-slate-100 border border-slate-200 mb-6">
             <button
               type="button"
-              onClick={() => setActiveTab('EMAIL')}
+              onClick={() => { setActiveTab('EMAIL'); setErrorMessage(null); }}
               className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
                 activeTab === 'EMAIL'
                   ? 'bg-white text-orange-700 shadow-sm'
@@ -154,7 +182,7 @@ export const AuthPage: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('MOBILE')}
+              onClick={() => { setActiveTab('MOBILE'); setErrorMessage(null); }}
               className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
                 activeTab === 'MOBILE'
                   ? 'bg-white text-orange-700 shadow-sm'
@@ -175,7 +203,7 @@ export const AuthPage: React.FC = () => {
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Priya Sundaram"
+                    placeholder="Enter your full name"
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-sm font-medium"
                   />
                 </div>
@@ -191,7 +219,7 @@ export const AuthPage: React.FC = () => {
                     autoComplete="username"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com (or leave blank for demo)"
+                    placeholder="you@example.com"
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-sm font-medium"
                   />
                 </div>
@@ -218,7 +246,7 @@ export const AuthPage: React.FC = () => {
                 {mode === 'LOGIN' && (
                   <button
                     type="button"
-                    onClick={() => showToast('Password reset instructions sent to your email')}
+                    onClick={() => showToast('Password reset instructions sent to your registered email.')}
                     className="text-xs font-semibold text-orange-600 hover:text-orange-700"
                   >
                     Forgot password?
@@ -230,7 +258,7 @@ export const AuthPage: React.FC = () => {
                 autoComplete={mode === 'LOGIN' ? 'current-password' : 'new-password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="•••••••• (default: buyer123)"
+                placeholder="••••••••"
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-sm"
               />
             </div>
@@ -266,42 +294,20 @@ export const AuthPage: React.FC = () => {
 
             {/* Primary Action Button */}
             <button
-              type="button"
-              onClick={() => executeLogin()}
+              type="submit"
               disabled={isLoading}
-              className="w-full py-3.5 rounded-xl bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white font-bold text-sm shadow-md shadow-orange-600/20 transition-all flex items-center justify-center gap-2 mt-2 cursor-pointer"
+              className="w-full py-3.5 rounded-xl bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white font-bold text-sm shadow-md shadow-orange-600/20 transition-all flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:opacity-50"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <>
-                  <span>Continue</span>
+                  <span>{mode === 'LOGIN' ? 'Sign In' : 'Create Account'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
           </form>
-
-          {/* Quick Demo Logins Bar */}
-          <div className="grid grid-cols-2 gap-2 mt-3">
-            <button
-              type="button"
-              onClick={handleQuickDemoBuyer}
-              className="py-2 px-2.5 rounded-xl border border-orange-200 bg-orange-50/60 hover:bg-orange-100 text-orange-800 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <Zap className="w-3.5 h-3.5 text-orange-600" />
-              <span>Buyer Demo</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleQuickDemoSeller}
-              className="py-2 px-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <Building2 className="w-3.5 h-3.5 text-slate-600" />
-              <span>Owner Demo</span>
-            </button>
-          </div>
 
           {/* Divider */}
           <div className="relative my-4 text-center">
@@ -315,7 +321,7 @@ export const AuthPage: React.FC = () => {
           <button
             type="button"
             onClick={handleGoogleLogin}
-            className="w-full py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-2.5 transition-all shadow-xs"
+            className="w-full py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-2.5 transition-all shadow-xs cursor-pointer"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -333,8 +339,8 @@ export const AuthPage: React.FC = () => {
                 Don't have an account?{' '}
                 <button
                   type="button"
-                  onClick={() => setMode('SIGNUP')}
-                  className="font-bold text-orange-600 hover:text-orange-700"
+                  onClick={() => { setMode('SIGNUP'); setErrorMessage(null); }}
+                  className="font-bold text-orange-600 hover:text-orange-700 cursor-pointer"
                 >
                   Create one
                 </button>
@@ -344,8 +350,8 @@ export const AuthPage: React.FC = () => {
                 Already have an account?{' '}
                 <button
                   type="button"
-                  onClick={() => setMode('LOGIN')}
-                  className="font-bold text-orange-600 hover:text-orange-700"
+                  onClick={() => { setMode('LOGIN'); setErrorMessage(null); }}
+                  className="font-bold text-orange-600 hover:text-orange-700 cursor-pointer"
                 >
                   Sign in
                 </button>

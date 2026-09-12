@@ -27,9 +27,9 @@ export const ProfilePage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'PERSONAL' | 'PREFERENCES' | 'ACTIVITY'>('PERSONAL');
 
-  const name = userSession?.name || 'Priya S.';
-  const email = userSession?.email || 'priya@example.com';
-  const phone = userSession?.phone || '+91 95765 43210';
+  const name = userSession?.name || (userSession?.email ? userSession.email.split('@')[0] : 'User Profile');
+  const email = userSession?.email || 'Not Signed In';
+  const phone = userSession?.phone || 'Not Provided';
   const city = requirements.city || 'Coimbatore';
 
   return (

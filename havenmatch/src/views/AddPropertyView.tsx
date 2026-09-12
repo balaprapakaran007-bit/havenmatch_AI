@@ -116,7 +116,7 @@ export const AddPropertyView: React.FC = () => {
   ]);
 
   // Contact Info
-  const [ownerName, setOwnerName] = useState(userSession?.name || 'Dr. K. Senthil Kumar');
+  const [ownerName, setOwnerName] = useState(userSession?.name || '');
   const [ownerPhone, setOwnerPhone] = useState(userSession?.phone || '+91 98400 11223');
 
   // Quick Demo Autofill

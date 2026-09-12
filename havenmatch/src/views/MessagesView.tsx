@@ -48,8 +48,8 @@ export const MessagesView: React.FC = () => {
               {role === 'BUYER' ? 'SK' : 'AS'}
             </div>
             <div>
-              <h3 className="font-bold text-sm sm:text-base text-slate-900">
-                {role === 'BUYER' ? 'Dr. K. Senthil Kumar (Owner)' : 'Akash Sundaram (Buyer)'}
+              <h3 className="font-extrabold text-slate-900 text-sm sm:text-base">
+                {role === 'BUYER' ? 'Property Owner' : 'Verified Buyer'}
               </h3>
               <p className="text-[11px] text-slate-500 flex items-center gap-1">
                 <MapPin className="w-3 h-3 text-orange-600" />
