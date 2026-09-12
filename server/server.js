@@ -767,24 +767,88 @@ async function handleAction(action, payload = {}) {
     // 7. Visits Scheduling
     case 'visits/schedule': {
       const { visitData } = payload;
+      if (!visitData) {
+        throw new Error('Missing visitData in visits/schedule payload');
+      }
+
+      // Resolve propertyTitle from DB if not provided
+      let resolvedTitle = visitData.propertyTitle;
+      let resolvedLocality = visitData.propertyLocality;
+      if (!resolvedTitle && visitData.propertyId) {
+        const prop = await db.collection('properties').findOne({
+          $or: [
+            { id: visitData.propertyId },
+            { propertyId: visitData.propertyId },
+            { _id: visitData.propertyId.length === 24 ? new ObjectId(visitData.propertyId) : null }
+          ].filter(q => q._id !== null || !q._id)
+        });
+        if (prop) {
+          resolvedTitle = prop.title || prop.propertyTitle || visitData.propertyId;
+          resolvedLocality = resolvedLocality || `${prop.locality || ''}, ${prop.city || ''}`.replace(/^, |, $/g, '');
+        }
+      }
+
       const doc = {
         ...visitData,
-        id: visitData?.id || `vis-${Date.now()}`,
-        status: 'Scheduled',
+        propertyTitle: resolvedTitle || visitData.propertyId || 'Unknown Property',
+        propertyLocality: resolvedLocality || visitData.propertyLocality || '',
+        buyerName: visitData.buyerName || visitData.buyerId || 'Buyer',
+        sellerName: visitData.sellerName || visitData.sellerId || 'Seller',
+        id: visitData.id || `vis-${Date.now()}`,
+        status: visitData.status || 'Scheduled',
         createdAt: new Date()
       };
       await db.collection('visit_requests').insertOne(doc);
-      console.log(`[Visits] Visit scheduled for property: ${doc.propertyTitle}`);
+      console.log(`[Visits] Visit scheduled for property: ${doc.propertyTitle} (${doc.propertyId}) | Buyer: ${doc.buyerName} | Date: ${doc.date} ${doc.timeSlot}`);
       return { success: true, action, visit: doc };
     }
 
     case 'visits/list': {
+      const { userId, buyerId, sellerId } = payload;
+      const query = {};
+      if (buyerId || userId) {
+        query.$or = [
+          { buyerId: buyerId || userId },
+          { buyerName: buyerId || userId },
+          { 'buyerPhone': buyerId || userId }
+        ];
+      }
+      if (sellerId) {
+        query.$or = query.$or || [];
+        query.$or.push({ sellerId }, { sellerName: sellerId });
+      }
       const visits = await db
         .collection('visit_requests')
-        .find({})
+        .find(Object.keys(query).length > 0 ? query : {})
         .sort({ createdAt: -1 })
         .toArray();
       return { success: true, action, visits };
+    }
+
+    case 'visits/updateStatus': {
+      const { visitId, status } = payload;
+      if (!visitId) throw new Error('Missing visitId for visits/updateStatus');
+      const validStatuses = ['Pending', 'Confirmed', 'Scheduled', 'Completed', 'Cancelled'];
+      const newStatus = validStatuses.includes(status) ? status : 'Confirmed';
+      const updateResult = await db.collection('visit_requests').findOneAndUpdate(
+        { $or: [{ id: visitId }, { _id: visitId.length === 24 ? new ObjectId(visitId) : null }].filter(q => q._id !== null || !q._id) },
+        { $set: { status: newStatus, updatedAt: new Date() } },
+        { returnDocument: 'after' }
+      );
+      console.log(`[Visits] Status updated: ${visitId} → ${newStatus}`);
+      return { success: true, action, visit: updateResult || { id: visitId, status: newStatus } };
+    }
+
+    case 'visits/cancel': {
+      const { visitId } = payload;
+      if (!visitId) throw new Error('Missing visitId for visits/cancel');
+      const cancelResult = await db.collection('visit_requests').findOneAndUpdate(
+        { $or: [{ id: visitId }, { _id: visitId.length === 24 ? new ObjectId(visitId) : null }].filter(q => q._id !== null || !q._id) },
+        { $set: { status: 'Cancelled', cancelledAt: new Date() } },
+        { returnDocument: 'after' }
+      );
+      console.log(`[Visits] Visit cancelled: ${visitId}`);
+      return { success: true, action, visit: cancelResult || { id: visitId, status: 'Cancelled' } };
     }
 
     // 8. Shortlists
