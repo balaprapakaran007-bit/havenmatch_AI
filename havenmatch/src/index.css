@@ -1,0 +1,160 @@
+@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --haven-orange: #ea580c;
+    --haven-orange-light: #f97316;
+    --haven-orange-dark: #c2410c;
+    --haven-navy: #0f172a;
+    --haven-bg: #faf9f6;
+    --haven-bg-subtle: #f8fafc;
+    --haven-border: #f1f5f9;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  body {
+    background-color: #faf9f6;
+    color: #0f172a;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  /* Prevent auto-zoom on mobile inputs in iOS Safari */
+  @media screen and (max-width: 768px) {
+    input[type="text"],
+    input[type="number"],
+    input[type="email"],
+    input[type="tel"],
+    input[type="password"],
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Active touch reaction */
+button:active, a:active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+/* Modern SaaS Card Elevation */
+.card-haven {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.25rem;
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.05), 0 1px 3px -1px rgba(15, 23, 42, 0.02);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-haven:hover {
+  border-color: #fed7aa;
+  box-shadow: 0 12px 28px -4px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(234, 88, 12, 0.08);
+}
+
+/* Interactive Card Option (for selection steps like role, goal) */
+.card-option {
+  background-color: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 1.25rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.card-option:hover {
+  border-color: #fdba74;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -4px rgba(234, 88, 12, 0.12);
+}
+
+.card-option-selected {
+  border-color: #ea580c !important;
+  background-color: #fff7ed !important;
+  box-shadow: 0 0 0 1px #ea580c, 0 12px 28px -4px rgba(234, 88, 12, 0.18) !important;
+}
+
+/* Step Progress Indicator */
+.step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  transition: all 0.3s ease;
+}
+
+.step-dot-active {
+  width: 24px;
+  background-color: #ea580c;
+}
+
+/* Safe area bottom padding for mobile devices */
+.pb-safe {
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 1.25rem));
+}
+
+/* Clean Leaflet Map Styling - removes clutter & unwanted watermarks */
+.leaflet-control-attribution {
+  display: none !important;
+}
+
+.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.leaflet-container {
+  font-family: inherit !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 1 !important;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 16px !important;
+  box-shadow: 0 12px 30px -4px rgba(15, 23, 42, 0.25) !important;
+  border: 1px solid #f1f5f9;
+}
+
+.leaflet-popup-tip {
+  background: white;
+}
