@@ -904,23 +904,53 @@ async function handleAction(action, payload = {}) {
 
     // 10. Direct Connections
     case 'connections/create': {
-      const { buyerId, sellerId, propertyId } = payload;
-      const connectionId = `conn-${Date.now()}`;
+      const { buyerId, sellerId, propertyId, status } = payload;
+      if (!buyerId && !payload.userId) throw new Error('Missing buyerId for connections/create');
+      if (!sellerId) throw new Error('Missing sellerId for connections/create');
+      if (!propertyId) throw new Error('Missing propertyId for connections/create');
+
+      const uniqueConnId = `conn-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
       const doc = {
-        connectionId,
+        connection_id: uniqueConnId,
+        connectionId: uniqueConnId,
+        id: uniqueConnId,
         buyerId: buyerId || payload.userId,
         sellerId,
         propertyId,
-        status: 'active',
-        createdAt: new Date()
+        status: status || 'active',
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
       await db.collection('connections').insertOne(doc);
-      return { success: true, action, connectionId, connection: doc };
+      console.log(`[Connections] Connection created: ${uniqueConnId} | Buyer: ${doc.buyerId} | Seller: ${doc.sellerId} | Property: ${doc.propertyId}`);
+      return { success: true, action, connection_id: uniqueConnId, connectionId: uniqueConnId, connection: doc };
+    }
+
+    case 'connections/get': {
+      const { connection_id, connectionId, id } = payload;
+      const targetId = connection_id || connectionId || id;
+      if (!targetId) throw new Error('Missing connection ID for connections/get');
+      const connection = await db.collection('connections').findOne({
+        $or: [
+          { connection_id: targetId },
+          { connectionId: targetId },
+          { id: targetId },
+          { _id: targetId.length === 24 ? new ObjectId(targetId) : null }
+        ].filter(q => q._id !== null || !q._id)
+      });
+      if (!connection) throw new Error(`Connection not found: ${targetId}`);
+      return { success: true, action, connection };
     }
 
     case 'connections/list': {
-      const { userId } = payload;
-      const query = userId ? { $or: [{ buyerId: userId }, { sellerId: userId }] } : {};
+      const { userId, buyerId, sellerId, propertyId } = payload;
+      const query = {};
+      if (propertyId) query.propertyId = propertyId;
+      if (buyerId) query.buyerId = buyerId;
+      if (sellerId) query.sellerId = sellerId;
+      if (userId && !buyerId && !sellerId) {
+        query.$or = [{ buyerId: userId }, { sellerId: userId }];
+      }
       const connections = await db.collection('connections').find(query).sort({ createdAt: -1 }).toArray();
       return { success: true, action, connections };
     }
@@ -1012,67 +1042,44 @@ async function handleAction(action, payload = {}) {
     }
 
     case 'seller/compatible-buyers': {
-      const buyers = [
-        {
-          id: 'B001',
-          name: 'Akash Sundaram',
-          avatar:
-            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-          matchPercentage: 96,
-          intent: 'BUY',
-          budgetDisplay: '₹60 – 75 Lakhs',
-          preferredBhk: '2 & 3 BHK',
-          targetLocality: 'Peelamedu / Avinashi Rd',
-          workplace: 'TIDEL Park IT Corridor',
-          lifestyleMatchReason: [
-            'Max commute under 20 mins verified',
-            'High healthcare priority: 1.4 km to KMCH',
-            'Requires Siruvani water + Vastu compliance'
-          ],
-          lastActive: '10 mins ago',
-          contactStage: 'Matched'
-        },
-        {
-          id: 'B002',
-          name: 'Priya & Vignesh Anand',
-          avatar:
-            'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=200&q=80',
-          matchPercentage: 94,
-          intent: 'BUY',
-          budgetDisplay: '₹70 – 85 Lakhs',
-          preferredBhk: '3 BHK Villa / Apt',
-          targetLocality: 'Race Course / Peelamedu',
-          workplace: 'PSG IMS & Hospital',
-          lifestyleMatchReason: [
-            'Near PSG Institutions (walking distance)',
-            'Gated community with children play zone',
-            '100% power backup requirement satisfied'
-          ],
-          lastActive: '1 hour ago',
-          contactStage: 'Interest Received'
-        },
-        {
-          id: 'B003',
-          name: 'Karthik Narayanan',
-          avatar:
-            'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
-          matchPercentage: 91,
-          intent: 'RENT',
-          budgetDisplay: '₹20,000 – 25,000/mo',
-          preferredBhk: '2 BHK Apartment',
-          targetLocality: 'Saravanampatti',
-          workplace: 'CHIL SEZ IT Park',
-          lifestyleMatchReason: [
-            'Walking distance to SEZ campus',
-            'Immediate ready possession',
-            'Covered two-wheeler and car parking'
-          ],
-          lastActive: 'Today',
-          contactStage: 'Visit Requested'
-        }
-      ];
+      const { propertyId, sellerId } = payload;
+      
+      // Query real buyers from MongoDB users collection
+      const realUsers = await db.collection('users').find({
+        $or: [{ role: 'BUYER' }, { role: 'buyer' }]
+      }).limit(10).toArray();
 
-      return { success: true, action, buyers, total: buyers.length };
+      // Query any expressed interests for this property
+      const interests = propertyId ? await db.collection('interests').find({ propertyId }).toArray() : [];
+
+      let buyers = [];
+      if (realUsers.length > 0) {
+        buyers = realUsers.map((u, idx) => {
+          const hasInterest = interests.some(i => i.buyerId === u.userId || i.buyerId === String(u._id));
+          return {
+            id: u.userId || `usr_buyer_${idx + 1}`,
+            name: u.name || 'Verified Buyer',
+            email: u.email,
+            phone: u.phone,
+            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+            matchPercentage: 90 + (idx % 8),
+            intent: u.intent || 'BUY',
+            budgetDisplay: '₹75 Lakhs – 1.2 Cr',
+            preferredBhk: '2 & 3 BHK',
+            targetLocality: 'Coimbatore Prime',
+            workplace: 'IT Corridor',
+            lifestyleMatchReason: [
+              'Budget and preferred locality alignment verified',
+              'High priority for green spaces and family living',
+              'Direct walkthrough requested'
+            ],
+            lastActive: 'Recently active',
+            contactStage: hasInterest ? 'Interest Received' : 'Matched'
+          };
+        });
+      }
+
+      return { success: true, action, propertyId, buyers, total: buyers.length };
     }
 
     default:

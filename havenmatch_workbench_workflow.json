@@ -435,7 +435,7 @@
       "data": {
         "label": "CONNECTION PROCESSOR",
         "toolId": "code.execute",
-        "code": "// Connection Manager\nconst req = input || {};\nif (!req.action?.startsWith('connections/')) return req;\n\nreturn {\n  success: true,\n  action: req.action,\n  domain: 'interactions',\n  connectionId: 'conn_' + Date.now(),\n  status: 'active'\n};"
+        "code": "// Connection Manager (Create, List, Get)\nconst req = input || {};\nif (!req.action?.startsWith('connections/')) return req;\n\nconst action = req.action;\nconst p = req.payload || {};\nconst uniqueConnId = 'conn-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);\n\nreturn {\n  success: true,\n  action: action,\n  domain: 'interactions',\n  connection_id: uniqueConnId,\n  connectionId: uniqueConnId,\n  id: uniqueConnId,\n  buyerId: p.buyerId || p.userId,\n  sellerId: p.sellerId,\n  propertyId: p.propertyId,\n  status: p.status || 'active'\n};"
       },
       "width": 240,
       "height": 90
