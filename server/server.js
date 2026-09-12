@@ -804,18 +804,109 @@ async function handleAction(action, payload = {}) {
       return { success: true, action };
     }
 
+    case 'shortlists/list': {
+      const { userId } = payload;
+      const query = userId ? { userId } : {};
+      const shortlists = await db.collection('shortlists').find(query).toArray();
+      return { success: true, action, shortlists };
+    }
+
     // 9. Interests
+    case 'interests/create':
     case 'interests/express': {
-      const { buyerId, propertyId } = payload;
+      const { buyerId, propertyId, sellerId, message } = payload;
       const interestId = `int-${Date.now()}`;
-      await db.collection('interests').insertOne({
+      const doc = {
         interestId,
-        buyerId,
+        buyerId: buyerId || payload.userId,
         propertyId,
-        status: 'expressed',
+        sellerId: sellerId || 'owner@havenmatch.ai',
+        message: message || '',
+        status: 'PENDING',
         createdAt: new Date()
-      });
-      return { success: true, action, interestId };
+      };
+      await db.collection('interests').insertOne(doc);
+      return { success: true, action, interestId, interest: doc };
+    }
+
+    case 'interests/list': {
+      const { userId, buyerId, sellerId } = payload;
+      const query = {};
+      if (buyerId || userId) query.buyerId = buyerId || userId;
+      if (sellerId) query.sellerId = sellerId;
+      const interests = await db.collection('interests').find(query).sort({ createdAt: -1 }).toArray();
+      return { success: true, action, interests };
+    }
+
+    // 10. Direct Connections
+    case 'connections/create': {
+      const { buyerId, sellerId, propertyId } = payload;
+      const connectionId = `conn-${Date.now()}`;
+      const doc = {
+        connectionId,
+        buyerId: buyerId || payload.userId,
+        sellerId,
+        propertyId,
+        status: 'active',
+        createdAt: new Date()
+      };
+      await db.collection('connections').insertOne(doc);
+      return { success: true, action, connectionId, connection: doc };
+    }
+
+    case 'connections/list': {
+      const { userId } = payload;
+      const query = userId ? { $or: [{ buyerId: userId }, { sellerId: userId }] } : {};
+      const connections = await db.collection('connections').find(query).sort({ createdAt: -1 }).toArray();
+      return { success: true, action, connections };
+    }
+
+    // 11. In-App Messaging
+    case 'messages/send': {
+      const msg = payload.message || payload;
+      const messageId = `msg-${Date.now()}`;
+      const doc = {
+        messageId,
+        fromUserId: msg.fromUserId || msg.senderId || 'buyer',
+        toUserId: msg.toUserId || msg.recipientId || 'owner',
+        propertyId: msg.propertyId,
+        content: msg.content || msg.text || '',
+        createdAt: new Date()
+      };
+      await db.collection('messages').insertOne(doc);
+      return { success: true, action, messageId, message: doc };
+    }
+
+    case 'messages/list': {
+      const { userId, propertyId } = payload;
+      const query = {};
+      if (propertyId) query.propertyId = propertyId;
+      if (userId) query.$or = [{ fromUserId: userId }, { toUserId: userId }];
+      const messages = await db.collection('messages').find(query).sort({ createdAt: 1 }).toArray();
+      return { success: true, action, messages };
+    }
+
+    // 12. Property Feedback & Reviews
+    case 'feedback/submit': {
+      const { propertyId, userId, rating, review } = payload;
+      const feedbackId = `fb-${Date.now()}`;
+      const doc = {
+        feedbackId,
+        propertyId,
+        userId: userId || 'anonymous_user',
+        rating: Number(rating) || 5,
+        review: review || '',
+        createdAt: new Date()
+      };
+      await db.collection('feedback').insertOne(doc);
+      return { success: true, action, feedbackId, feedback: doc };
+    }
+
+    case 'feedback/list': {
+      const { propertyId } = payload;
+      const query = propertyId ? { propertyId } : {};
+      const feedback = await db.collection('feedback').find(query).sort({ createdAt: -1 }).toArray();
+      return { success: true, action, feedback };
     }
 
     // 10. Seller Listings & Compatible Buyers
