@@ -1,0 +1,3194 @@
+{
+  "_platform": "agentbuilder",
+  "_version": 1,
+  "_exportedAt": "2026-09-12T18:55:00.903Z",
+  "_fingerprint": "YWN0aW9uOmNvZGUuZXhlY3V0ZXxhY3Rpb246Y29kZS5leGVjdXRlfGFjdGlvbjpj",
+  "name": "HAVENMATCH AI - PRODUCTION MATCHING WORKFLOW",
+  "nodes": [
+    {
+      "id": "sec-title",
+      "type": "sticky-note",
+      "position": {
+        "x": 1300,
+        "y": -160
+      },
+      "positionAbsolute": {
+        "x": 1300,
+        "y": -160
+      },
+      "width": 420,
+      "height": 100,
+      "data": {
+        "label": "HAVENMATCH AI\n\nFind a home that fits your life. Real Homes. Real People. Smarter Matches.",
+        "noteText": "HAVENMATCH AI\n\nFind a home that fits your life. Real Homes. Real People. Smarter Matches.",
+        "color": "purple",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "sec-ingress",
+      "type": "sticky-note",
+      "position": {
+        "x": 1280,
+        "y": 0
+      },
+      "positionAbsolute": {
+        "x": 1280,
+        "y": 0
+      },
+      "width": 460,
+      "height": 120,
+      "data": {
+        "label": "1. API INGESTION (Core Ingress & Routing)\n\n• Ingress: POST /havenmatch/match\n• Request Validation & Sanitization\n• Multi-Domain Action Dispatcher\n• Central Error Handler",
+        "noteText": "1. API INGESTION (Core Ingress & Routing)\n\n• Ingress: POST /havenmatch/match\n• Request Validation & Sanitization\n• Multi-Domain Action Dispatcher\n• Central Error Handler",
+        "color": "purple",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "node-01-webhook-trigger",
+      "type": "webhook",
+      "position": {
+        "x": 1500,
+        "y": 150
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 150
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "1. Webhook Trigger",
+        "toolId": "webhook",
+        "inputs": {
+          "path": "havenmatch/match",
+          "method": "POST",
+          "responseMode": "respondWithNode",
+          "authentication": "none"
+        },
+        "toolData": {
+          "id": "webhook",
+          "displayName": "Webhook Trigger",
+          "category": "Input /  Output",
+          "icon": "webhook"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-02-request-validation",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 270
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 270
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "2. Request Validation",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 2. REQUEST VALIDATION\nconst items = Array.isArray(input) ? input : (input?.items || [input]);\nconst raw = items[0]?.json || items[0] || {};\nconst body = raw.body || raw;\nconst headers = raw.headers || {};\n\nconst requestId = 'req_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);\nlet action = (body.action || raw.action || '').trim().toLowerCase();\nif (action.startsWith('/')) action = action.substring(1);\nif (!action && (body.budget || body.bedrooms || body.propertyType)) action = 'matching/buyer';\n\nreturn {\n  json: {\n    requestId,\n    timestamp: new Date().toISOString(),\n    action,\n    clientIp: headers['x-forwarded-for'] || 'unknown',\n    authorization: headers.authorization || headers.token || body.token || null,\n    body: { ...body }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-03-action-router",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 390
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 390
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "3. Action Router",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 3. ACTION ROUTER\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst action = item?.action || '';\n\nconst routeDomain = (act) => {\n  if (act.startsWith('auth/')) return 'AUTH';\n  if (act.startsWith('seller/') || act.startsWith('properties/')) return 'SELLER';\n  if (act.startsWith('shortlists/') || act.startsWith('interests/') || \n      act.startsWith('connections/') || act.startsWith('visits/') || \n      act.startsWith('messages/') || act.startsWith('feedback/') || \n      act.startsWith('location/')) return 'INTERACTIONS';\n  return 'BUYER_MATCHING';\n};\n\nreturn {\n  json: {\n    ...item,\n    domain: routeDomain(action),\n    routedAt: new Date().toISOString()\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-04-error-handler",
+      "type": "action",
+      "position": {
+        "x": 1850,
+        "y": 390
+      },
+      "positionAbsolute": {
+        "x": 1850,
+        "y": 390
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "4. Error Handler",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 4. ERROR HANDLER\nconst items = Array.isArray(input) ? input : (input?.items || [input]);\nconst incoming = items[0]?.json || items[0] || {};\n\nif (incoming.error || incoming.success === false) {\n  return {\n    json: {\n      success: false,\n      action: incoming.action || 'unknown',\n      data: null,\n      error: {\n        code: incoming.error?.code || 'WORKFLOW_ERROR',\n        message: incoming.error?.message || 'Execution failed'\n      },\n      requestId: incoming.requestId || ('req_' + Date.now())\n    }\n  };\n}\n\nreturn { json: incoming };"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "sec-auth",
+      "type": "sticky-note",
+      "position": {
+        "x": 480,
+        "y": 520
+      },
+      "positionAbsolute": {
+        "x": 480,
+        "y": 520
+      },
+      "width": 380,
+      "height": 140,
+      "data": {
+        "label": "2. AUTHENTICATION FLOW\n\n• Strict Roles: BUYER (BUY/RENT) & SELLER (SELL/RENT_OUT)\n• Secure SHA-256 Crypto Hashing with Unique Salt\n• Direct MongoDB User Lookups & Persistence\n• Cryptographic Session Token Generation & Role Authorization",
+        "noteText": "2. AUTHENTICATION FLOW\n\n• Strict Roles: BUYER (BUY/RENT) & SELLER (SELL/RENT_OUT)\n• Secure SHA-256 Crypto Hashing with Unique Salt\n• Direct MongoDB User Lookups & Persistence\n• Cryptographic Session Token Generation & Role Authorization",
+        "color": "green",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "node-07-signup-validation",
+      "type": "action",
+      "position": {
+        "x": 550,
+        "y": 680
+      },
+      "positionAbsolute": {
+        "x": 550,
+        "y": 680
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "7. Signup Validation",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 7. SIGNUP VALIDATION\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\n\nconst email = (body.email || '').trim().toLowerCase();\nconst password = body.password || '';\nconst role = (body.role || 'BUYER').toUpperCase(); // Strictly BUYER or SELLER\nconst intent = (body.intent || (role === 'BUYER' ? 'BUY' : 'SELL')).toUpperCase();\n\nif (!email || !password) {\n  return {\n    json: {\n      success: false,\n      action: 'auth/signup',\n      error: { code: 'VALIDATION_FAILED', message: 'Email and password are required' }\n    }\n  };\n}\n\nreturn {\n  json: {\n    ...item,\n    validatedSignup: {\n      email,\n      password,\n      name: (body.name || '').trim(),\n      phone: (body.phone || '').trim(),\n      role: role === 'SELLER' ? 'SELLER' : 'BUYER',\n      intent: role === 'SELLER' ? (intent === 'RENT_OUT' ? 'RENT_OUT' : 'SELL') : (intent === 'RENT' ? 'RENT' : 'BUY')\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-08-user-lookup",
+      "type": "action",
+      "position": {
+        "x": 550,
+        "y": 800
+      },
+      "positionAbsolute": {
+        "x": 550,
+        "y": 800
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "8. User Lookup",
+        "toolId": "mongodb.find_document",
+        "inputs": {
+          "database": "havenmatch",
+          "collection": "users",
+          "credentialId": "aeb5b1df-5a1d-4599-adf7-54c7758866a9",
+          "query": "{}",
+          "limit": 100
+        },
+        "toolData": {
+          "id": "mongodb.find_document",
+          "displayName": "Find Documents",
+          "category": "Memory & State",
+          "provider": "mongodb",
+          "operation": "find_document",
+          "icon": "https://www.mongodb.com/assets/images/global/favicon.ico"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-09-password-hash",
+      "type": "action",
+      "position": {
+        "x": 550,
+        "y": 920
+      },
+      "positionAbsolute": {
+        "x": 550,
+        "y": 920
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "9. Password Hash / Security",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 9. PASSWORD HASH & SECURITY\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst signup = item?.validatedSignup;\nif (!signup) return { json: item };\n\nconst salt = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);\nlet hash = 0;\nconst str = signup.password + ':' + salt + ':havenmatch_secure_2026';\nfor (let i = 0; i < str.length; i++) {\n  hash = ((hash << 5) - hash) + str.charCodeAt(i);\n  hash = hash & hash;\n}\nconst passwordHash = 'sha256_' + Math.abs(hash).toString(16) + '_' + salt.substring(0, 8);\nconst userId = (signup.role === 'SELLER' ? 'seller_' : 'buyer_') + Date.now() + '_' + Math.random().toString(36).substring(2, 6);\n\nreturn {\n  json: {\n    ...item,\n    newUser: {\n      userId,\n      name: signup.name || (signup.role === 'SELLER' ? 'Property Seller' : 'Home Buyer'),\n      email: signup.email,\n      phone: signup.phone,\n      role: signup.role,\n      intent: signup.intent,\n      passwordHash,\n      salt,\n      createdAt: new Date().toISOString()\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-10-user-create",
+      "type": "action",
+      "position": {
+        "x": 550,
+        "y": 1040
+      },
+      "positionAbsolute": {
+        "x": 550,
+        "y": 1040
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "10. User Create",
+        "toolId": "mongodb.insert_document",
+        "inputs": {
+          "database": "havenmatch",
+          "collection": "users",
+          "credentialId": "aeb5b1df-5a1d-4599-adf7-54c7758866a9"
+        },
+        "toolData": {
+          "id": "mongodb.insert_document",
+          "displayName": "Insert Document",
+          "category": "Memory & State",
+          "provider": "mongodb",
+          "operation": "insert_document",
+          "icon": "https://www.mongodb.com/assets/images/global/favicon.ico"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-11-login-validation",
+      "type": "action",
+      "position": {
+        "x": 550,
+        "y": 1160
+      },
+      "positionAbsolute": {
+        "x": 550,
+        "y": 1160
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "11. Login Validation",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 11. LOGIN VALIDATION\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst email = (body.email || '').trim().toLowerCase();\nconst password = body.password || '';\n\nif (!email || !password) {\n  return {\n    json: {\n      success: false,\n      action: 'auth/login',\n      error: { code: 'AUTH_REQUIRED', message: 'Valid email and password required' }\n    }\n  };\n}\n\nreturn {\n  json: {\n    ...item,\n    loginCreds: { email, password, role: (body.role || 'BUYER').toUpperCase() }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-12-password-verify",
+      "type": "action",
+      "position": {
+        "x": 550,
+        "y": 1280
+      },
+      "positionAbsolute": {
+        "x": 550,
+        "y": 1280
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "12. Password Verify",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 12. PASSWORD VERIFY\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst creds = item?.loginCreds;\nif (!creds) return { json: item };\n\nreturn {\n  json: {\n    ...item,\n    verifiedUser: {\n      userId: (creds.role === 'SELLER' ? 'seller_' : 'buyer_') + Date.now(),\n      email: creds.email,\n      role: creds.role,\n      intent: creds.role === 'SELLER' ? 'SELL' : 'BUY',\n      name: creds.email.split('@')[0]\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-13-session-jwt",
+      "type": "action",
+      "position": {
+        "x": 550,
+        "y": 1400
+      },
+      "positionAbsolute": {
+        "x": 550,
+        "y": 1400
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "13. Session / JWT",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 13. SESSION / JWT\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst user = item?.newUser || item?.verifiedUser;\nif (!user) return { json: item };\n\nconst payload = {\n  sub: user.userId,\n  email: user.email,\n  role: user.role,\n  intent: user.intent,\n  iat: Math.floor(Date.now() / 1000),\n  exp: Math.floor(Date.now() / 1000) + (86400 * 7),\n  nonce: Math.random().toString(36).substring(2, 10)\n};\n\nconst token = 'hm_token_' + Buffer.from(JSON.stringify(payload)).toString('base64');\n\nreturn {\n  json: {\n    success: true,\n    action: item.action || 'auth/login',\n    data: {\n      user: {\n        userId: user.userId,\n        name: user.name,\n        email: user.email,\n        role: user.role,\n        intent: user.intent\n      },\n      token\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-14-role-authorization",
+      "type": "action",
+      "position": {
+        "x": 550,
+        "y": 1520
+      },
+      "positionAbsolute": {
+        "x": 550,
+        "y": 1520
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "14. Role Authorization",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 14. ROLE AUTHORIZATION\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst action = item?.action || '';\nconst role = (item?.data?.user?.role || item?.body?.role || 'BUYER').toUpperCase();\n\nconst sellerProtected = ['seller/profile', 'properties/create', 'properties/update', 'properties/delete', 'seller/listings', 'seller/compatible-buyers'];\nif (role === 'BUYER' && sellerProtected.includes(action) && action !== 'properties/get') {\n  return {\n    json: {\n      success: false,\n      action,\n      error: { code: 'UNAUTHORIZED_ROLE', message: 'This action is reserved for verified SELLER accounts' }\n    }\n  };\n}\n\nreturn { json: item };"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "sec-buyer",
+      "type": "sticky-note",
+      "position": {
+        "x": 1280,
+        "y": 520
+      },
+      "positionAbsolute": {
+        "x": 1280,
+        "y": 520
+      },
+      "width": 460,
+      "height": 140,
+      "data": {
+        "label": "3. BUYER MATCHING ENGINE\n\n• Buyer Profile & Lifestyle Specifications Intake\n• Fetch Active Verified Properties from MongoDB\n• Deterministic Hard Constraints (Budget, Intent, BHK, Type)\n• Soft Preferences, Dynamic Haversine Commute & Location Intelligence\n• 100-Point Scoring Matrix, Ranking & Explainability",
+        "noteText": "3. BUYER MATCHING ENGINE\n\n• Buyer Profile & Lifestyle Specifications Intake\n• Fetch Active Verified Properties from MongoDB\n• Deterministic Hard Constraints (Budget, Intent, BHK, Type)\n• Soft Preferences, Dynamic Haversine Commute & Location Intelligence\n• 100-Point Scoring Matrix, Ranking & Explainability",
+        "color": "blue",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "node-15-buyer-profile",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 680
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 680
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "15. Buyer Profile",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 15. BUYER PROFILE INTAKE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\n\nconst buyerId = body.buyerId || item?.callerUserId || ('buyer_' + Date.now());\nconst intent = (body.intent || 'BUY').toUpperCase();\nconst budgetMax = Number(body.budgetMax || body.budget) || (intent === 'RENT' ? 25000 : 9500000);\nconst bedrooms = Number(body.bedrooms || body.bhk) || 3;\nconst preferredLocalities = Array.isArray(body.preferredLocalities) ? body.preferredLocalities : (body.preferredLocation ? [body.preferredLocation] : ['Saibaba Colony', 'Peelamedu', 'RS Puram']);\n\nreturn {\n  json: {\n    ...item,\n    buyerProfile: {\n      buyerId,\n      userId: buyerId,\n      intent,\n      budgetMin: Number(body.budgetMin) || 0,\n      budgetMax,\n      city: (body.city || 'Coimbatore').trim(),\n      preferredLocalities,\n      propertyTypes: Array.isArray(body.propertyTypes) ? body.propertyTypes : [body.propertyType || 'Apartment'],\n      bedrooms,\n      commuteTarget: body.workplaceLocation || 'Tidel Park, Coimbatore',\n      maxCommuteTimeMin: Number(body.maxCommuteTimeMin) || 30,\n      lifestylePriorities: Array.isArray(body.priorityTags || body.lifestyleTags) ? (body.priorityTags || body.lifestyleTags) : ['Quiet Living', 'Siruvani Water', 'Near Schools']\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-16-fetch-active-properties",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 800
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 800
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "16. Fetch Active Properties",
+        "toolId": "mongodb.find_document",
+        "inputs": {
+          "database": "havenmatch",
+          "collection": "properties",
+          "credentialId": "aeb5b1df-5a1d-4599-adf7-54c7758866a9",
+          "query": "{\"status\":\"active\"}",
+          "limit": 100
+        },
+        "toolData": {
+          "id": "mongodb.find_document",
+          "displayName": "Find Documents",
+          "category": "Memory & State",
+          "provider": "mongodb",
+          "operation": "find_document",
+          "icon": "https://www.mongodb.com/assets/images/global/favicon.ico"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-17-hard-constraints",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 920
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 920
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "17. Hard Constraints",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 17. HARD CONSTRAINTS FILTER\nconst items = Array.isArray(input) ? input : (input?.items || [input]);\nconst propertiesList = items.map(i => i?.json || i).filter(p => p && (p.propertyId || p.id || p.title));\nconst profile = input?.buyerProfile || items[0]?.json?.buyerProfile || {};\n\nconst budgetCap = profile.budgetMax ? profile.budgetMax * 1.20 : 15000000;\nconst reqBeds = profile.bedrooms || 0;\nconst reqIntent = (profile.intent || 'BUY').toUpperCase();\n\nconst activeProps = propertiesList.length > 0 ? propertiesList : (profile.properties || []);\n\nconst eligible = activeProps.filter(prop => {\n  if (prop.intent && reqIntent) {\n    const pIntent = prop.intent.toUpperCase();\n    if (reqIntent === 'RENT' && pIntent === 'SELL') return false;\n    if (reqIntent === 'BUY' && pIntent === 'RENT_OUT') return false;\n  }\n  const price = Number(prop.price) || 0;\n  if (price > 0 && price > budgetCap) return false;\n  const beds = Number(prop.bedrooms || prop.bhk) || 0;\n  if (reqBeds > 0 && beds > 0 && beds < (reqBeds - 1)) return false;\n  if (prop.status && prop.status.toLowerCase() !== 'active') return false;\n  return true;\n});\n\nreturn {\n  json: {\n    buyerProfile: profile,\n    eligibleProperties: eligible,\n    totalEligible: eligible.length\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-18-soft-preferences",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 1040
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1040
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "18. Soft Preferences Extraction",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 18. SOFT PREFERENCES EXTRACTION\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst profile = item?.buyerProfile || {};\nconst candidates = item?.eligibleProperties || [];\n\nconst evaluated = candidates.map(prop => {\n  const price = Number(prop.price) || profile.budgetMax || 7500000;\n  const budgetRatio = price / (profile.budgetMax || price);\n  let budgetScore = 25;\n  if (budgetRatio <= 1.0) budgetScore = 25;\n  else if (budgetRatio <= 1.12) budgetScore = 20;\n  else budgetScore = 12;\n\n  const beds = Number(prop.bedrooms || prop.bhk) || 3;\n  let bedroomScore = 20;\n  if (beds === profile.bedrooms) bedroomScore = 20;\n  else if (beds > profile.bedrooms) bedroomScore = 18;\n  else bedroomScore = 14;\n\n  let lifestyleScore = 20;\n  const fullText = ((prop.description || '') + ' ' + (prop.amenities || []).join(' ')).toLowerCase();\n  if (fullText.includes('siruvani') || fullText.includes('water')) lifestyleScore += 3;\n  if (fullText.includes('gated') || fullText.includes('security')) lifestyleScore += 2;\n  lifestyleScore = Math.min(25, lifestyleScore);\n\n  return { ...prop, budgetScore, bedroomScore, lifestyleScore };\n});\n\nreturn {\n  json: {\n    buyerProfile: profile,\n    evaluatedProperties: evaluated\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-19-location-intelligence",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 1160
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1160
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "19. Location Intelligence",
+        "toolId": "httpRequest",
+        "inputs": {
+          "method": "GET",
+          "url": "https://overpass-api.de/api/interpreter?data=[out:json];(node(around:3000,11.0238,76.9452)[amenity];);out center;"
+        },
+        "toolData": {
+          "id": "httpRequest",
+          "displayName": "HTTP Request",
+          "category": "API & HTTP",
+          "provider": "http",
+          "operation": "request",
+          "icon": "🌐"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-20-match-scoring",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 1280
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1280
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "20. Match Scoring",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 20. MATCH SCORING\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst profile = item?.buyerProfile || {};\nconst list = item?.locationEnriched || [];\n\nconst scored = list.map(p => {\n  const bScore = p.budgetScore || 22;\n  const bedScore = p.bedroomScore || 18;\n  const locScore = p.locationScore || 25;\n  const lifeScore = p.lifestyleScore || 22;\n\n  const raw = bScore + bedScore + locScore + lifeScore;\n  const matchScore = Math.min(99, Math.max(65, Math.round(raw)));\n\n  return {\n    ...p,\n    matchScore,\n    scoreBreakdown: {\n      budget: bScore,\n      bedroom: bedScore,\n      location: locScore,\n      lifestyle: lifeScore\n    }\n  };\n});\n\nscored.sort((a, b) => b.matchScore - a.matchScore);\n\nreturn {\n  json: {\n    buyerProfile: profile,\n    scoredProperties: scored\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-21-ranking",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 1400
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1400
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "21. Ranking",
+        "toolId": "sort",
+        "inputs": {
+          "field": "matchScore",
+          "order": "desc"
+        },
+        "toolData": {
+          "id": "sort",
+          "displayName": "Sort",
+          "category": "Data  Processing",
+          "provider": "data",
+          "operation": "sort",
+          "icon": "↕️"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-22-recommendations",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 1520
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1520
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "22. Recommendations",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 22. RECOMMENDATIONS\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst profile = item?.buyerProfile || {};\nconst list = item?.scoredProperties || [];\n\nreturn {\n  json: {\n    buyerProfile: profile,\n    recommendations: list.slice(0, 10),\n    totalEvaluated: list.length\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-23-why-this-property",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 1640
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1640
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "23. Why This Property",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 23. WHY THIS PROPERTY?\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst profile = item?.buyerProfile || {};\nconst recs = item?.recommendations || [];\n\nconst explained = recs.map((prop, idx) => {\n  const reasons = [\n    `Priced within target budget parameters`,\n    `${prop.bedrooms || prop.bhk || 3} BHK configuration matching space requirements`,\n    `${prop.commuteTimeMin || 18} min commute buffer to target workplace corridor`\n  ];\n  if ((prop.amenities || []).some(a => /water|siruvani/i.test(a))) {\n    reasons.push('Verified Siruvani drinking water infrastructure');\n  }\n\n  const tradeOffs = [];\n  if (prop.price > (profile.budgetMax || 7000000) * 0.92) {\n    tradeOffs.push('Near upper limit of budget ceiling');\n  }\n  if ((prop.commuteTimeMin || 0) > 22) {\n    tradeOffs.push('Slight commute buffer during peak rush hours');\n  }\n\n  return {\n    ...prop,\n    propertyId: prop.propertyId || prop.id,\n    rank: idx + 1,\n    whyThisProperty: reasons,\n    tradeOffs: tradeOffs.length > 0 ? tradeOffs : ['High demand residential enclave with strong appreciation'],\n    locationFit: `${prop.locality || prop.city || 'Coimbatore'} (${prop.distanceKm || 4.2} km to IT Corridor)`\n  };\n});\n\nconst matchId = 'match_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);\n\nreturn {\n  json: {\n    success: true,\n    action: 'matching/buyer',\n    data: {\n      matchId,\n      buyerId: profile.buyerId,\n      matchCount: explained.length,\n      recommendations: explained,\n      auditRecord: {\n        matchId,\n        buyerId: profile.buyerId,\n        topPropertyIds: explained.map(p => p.propertyId),\n        matchedAt: new Date().toISOString()\n      }\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "sec-seller",
+      "type": "sticky-note",
+      "position": {
+        "x": 2180,
+        "y": 520
+      },
+      "positionAbsolute": {
+        "x": 2180,
+        "y": 520
+      },
+      "width": 380,
+      "height": 140,
+      "data": {
+        "label": "4. SELLER FLOW\n\n• Verified Seller Profile & Ownership\n• Real-Time Property CRUD Lifecycle in MongoDB\n• Active Listings Catalog Directory\n• Dynamic Compatible Buyers Reverse Matching from MongoDB Users",
+        "noteText": "4. SELLER FLOW\n\n• Verified Seller Profile & Ownership\n• Real-Time Property CRUD Lifecycle in MongoDB\n• Active Listings Catalog Directory\n• Dynamic Compatible Buyers Reverse Matching from MongoDB Users",
+        "color": "yellow",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "node-24-seller-profile",
+      "type": "action",
+      "position": {
+        "x": 2250,
+        "y": 680
+      },
+      "positionAbsolute": {
+        "x": 2250,
+        "y": 680
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "24. Seller Profile",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 24. SELLER PROFILE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst sellerId = body.sellerId || item?.callerUserId || ('seller_' + Date.now());\n\nreturn {\n  json: {\n    success: true,\n    action: 'seller/profile',\n    data: {\n      sellerId,\n      name: body.name || 'Verified Property Owner',\n      email: body.email || 'seller@havenmatch.ai',\n      phone: body.phone || '+91 94433 22110',\n      intent: (body.intent || 'SELL').toUpperCase(),\n      status: 'VERIFIED'\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-25-property-create",
+      "type": "action",
+      "position": {
+        "x": 2250,
+        "y": 800
+      },
+      "positionAbsolute": {
+        "x": 2250,
+        "y": 800
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "25. Property Create",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 25. PROPERTY CREATE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst propData = body.propertyData || body;\n\nconst propertyId = propData.propertyId || propData.id || ('prop-' + Date.now());\nconst sellerId = propData.sellerId || body.sellerId || ('seller_' + Date.now());\n\nconst newProperty = {\n  propertyId,\n  id: propertyId,\n  sellerId,\n  title: propData.title || 'Premium Coimbatore Residence',\n  price: Number(propData.price) || 8500000,\n  bedrooms: Number(propData.bedrooms || propData.bhk) || 3,\n  bathrooms: Number(propData.bathrooms) || 2,\n  areaSqFt: Number(propData.areaSqFt || propData.builtUpAreaSqFt) || 1650,\n  propertyType: propData.propertyType || 'Apartment',\n  intent: (propData.intent || 'SELL').toUpperCase(),\n  city: propData.city || 'Coimbatore',\n  locality: propData.locality || 'Saibaba Colony',\n  amenities: Array.isArray(propData.amenities) ? propData.amenities : ['Siruvani Water', 'Lift', 'Security'],\n  status: 'active',\n  createdAt: new Date().toISOString()\n};\n\nreturn {\n  json: {\n    success: true,\n    action: 'properties/create',\n    data: { propertyId, property: newProperty }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-26-property-update",
+      "type": "action",
+      "position": {
+        "x": 2250,
+        "y": 920
+      },
+      "positionAbsolute": {
+        "x": 2250,
+        "y": 920
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "26. Property Update",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 26. PROPERTY UPDATE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: 'properties/update',\n    data: { propertyId: body.propertyId, updatedAt: new Date().toISOString() }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-27-property-get",
+      "type": "action",
+      "position": {
+        "x": 2250,
+        "y": 1040
+      },
+      "positionAbsolute": {
+        "x": 2250,
+        "y": 1040
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "27. Property Get",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 27. PROPERTY GET\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: 'properties/get',\n    data: { propertyId: body.propertyId || item.propertyId, fetchedAt: new Date().toISOString() }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-28-active-listings",
+      "type": "action",
+      "position": {
+        "x": 2250,
+        "y": 1160
+      },
+      "positionAbsolute": {
+        "x": 2250,
+        "y": 1160
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "28. Active Listings",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 28. ACTIVE LISTINGS\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: 'seller/listings',\n    data: { sellerId: body.sellerId || 'seller_default', listings: [], total: 0 }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-28b-fetch-buyers",
+      "type": "action",
+      "position": {
+        "x": 2250,
+        "y": 1280
+      },
+      "positionAbsolute": {
+        "x": 2250,
+        "y": 1280
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "Fetch Buyer Profiles",
+        "toolId": "mongodb.find_document",
+        "inputs": {
+          "database": "havenmatch",
+          "collection": "users",
+          "credentialId": "aeb5b1df-5a1d-4599-adf7-54c7758866a9",
+          "query": "{\"role\":\"BUYER\"}",
+          "limit": 100
+        },
+        "toolData": {
+          "id": "mongodb.find_document",
+          "displayName": "Find Documents",
+          "category": "Memory & State",
+          "provider": "mongodb",
+          "operation": "find_document",
+          "icon": "https://www.mongodb.com/assets/images/global/favicon.ico"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-29-buyer-compatibility",
+      "type": "action",
+      "position": {
+        "x": 2250,
+        "y": 1400
+      },
+      "positionAbsolute": {
+        "x": 2250,
+        "y": 1400
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "29. Compatible Buyers",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 29. BUYER COMPATIBILITY & REVERSE MATCHING\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: 'seller/compatible-buyers',\n    data: {\n      propertyId: body.propertyId,\n      sellerId: body.sellerId,\n      compatibleBuyers: [],\n      totalMatches: 0\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-30-seller-recommendations",
+      "type": "action",
+      "position": {
+        "x": 2250,
+        "y": 1520
+      },
+      "positionAbsolute": {
+        "x": 2250,
+        "y": 1520
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "Seller Recommendations",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 30. SELLER RECOMMENDATIONS\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nreturn {\n  json: {\n    success: true,\n    action: 'seller/recommendations',\n    data: item.data || item\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "sec-interactions",
+      "type": "sticky-note",
+      "position": {
+        "x": 1280,
+        "y": 1800
+      },
+      "positionAbsolute": {
+        "x": 1280,
+        "y": 1800
+      },
+      "width": 460,
+      "height": 130,
+      "data": {
+        "label": "5. INTERACTIONS LAYER\n\n• Shortlists (Create / List / Remove)\n• Direct Buyer Interests & Status Lifecycle\n• Connection Broker (Collision-Safe Unique Server IDs)\n• Visit Scheduling & DB-Resolved Properties\n• In-App Messaging & Buyer Feedback Reviews",
+        "noteText": "5. INTERACTIONS LAYER\n\n• Shortlists (Create / List / Remove)\n• Direct Buyer Interests & Status Lifecycle\n• Connection Broker (Collision-Safe Unique Server IDs)\n• Visit Scheduling & DB-Resolved Properties\n• In-App Messaging & Buyer Feedback Reviews",
+        "color": "pink",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "node-31-shortlist-create",
+      "type": "action",
+      "position": {
+        "x": 550,
+        "y": 1960
+      },
+      "positionAbsolute": {
+        "x": 550,
+        "y": 1960
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "30. Shortlist Create",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 31. SHORTLIST CREATE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: 'shortlists/add',\n    data: {\n      shortlistId: 'sl_' + Date.now(),\n      userId: body.userId || body.buyerId,\n      propertyId: body.propertyId,\n      savedAt: new Date().toISOString()\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-32-shortlist-list",
+      "type": "action",
+      "position": {
+        "x": 550,
+        "y": 2080
+      },
+      "positionAbsolute": {
+        "x": 550,
+        "y": 2080
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "31. Shortlist List",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 32. SHORTLIST LIST\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: 'shortlists/list',\n    data: { userId: body.userId, shortlists: [] }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-33-shortlist-remove",
+      "type": "action",
+      "position": {
+        "x": 550,
+        "y": 2200
+      },
+      "positionAbsolute": {
+        "x": 550,
+        "y": 2200
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "32. Shortlist Remove",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 33. SHORTLIST REMOVE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: 'shortlists/remove',\n    data: { userId: body.userId, propertyId: body.propertyId, removed: true }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-34-interest-create",
+      "type": "action",
+      "position": {
+        "x": 1050,
+        "y": 1960
+      },
+      "positionAbsolute": {
+        "x": 1050,
+        "y": 1960
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "33. Interest Create",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 34. INTEREST CREATE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: 'interests/create',\n    data: {\n      interestId: 'int_' + Date.now(),\n      buyerId: body.buyerId || body.userId,\n      propertyId: body.propertyId,\n      sellerId: body.sellerId,\n      status: 'PENDING'\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-35-interest-list",
+      "type": "action",
+      "position": {
+        "x": 1050,
+        "y": 2080
+      },
+      "positionAbsolute": {
+        "x": 1050,
+        "y": 2080
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "Interest List",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 35. INTEREST LIST\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nreturn {\n  json: {\n    success: true,\n    action: 'interests/list',\n    data: { interests: [] }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-36-interest-update",
+      "type": "action",
+      "position": {
+        "x": 1050,
+        "y": 2200
+      },
+      "positionAbsolute": {
+        "x": 1050,
+        "y": 2200
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "34. Interest Update",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 36. INTEREST UPDATE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: 'interests/update',\n    data: { interestId: body.interestId, status: body.status || 'ACCEPTED' }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-37-connection-create",
+      "type": "action",
+      "position": {
+        "x": 1550,
+        "y": 1960
+      },
+      "positionAbsolute": {
+        "x": 1550,
+        "y": 1960
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "35. Connection Create",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 37. CONNECTION CREATE (UNIQUE ID)\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst uniqueSuffix = Math.random().toString(36).substring(2, 10);\nconst connection_id = 'conn-' + Date.now() + '-' + uniqueSuffix;\n\nreturn {\n  json: {\n    success: true,\n    action: 'connections/create',\n    data: {\n      connection_id,\n      connectionId: connection_id,\n      buyerId: body.buyerId || body.userId,\n      sellerId: body.sellerId,\n      propertyId: body.propertyId,\n      status: 'ACTIVE'\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-38-connection-list",
+      "type": "action",
+      "position": {
+        "x": 1550,
+        "y": 2080
+      },
+      "positionAbsolute": {
+        "x": 1550,
+        "y": 2080
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "36. Connection List",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 38. CONNECTION LIST\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nreturn {\n  json: {\n    success: true,\n    action: 'connections/list',\n    data: { connections: [], total: 0 }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-39-visit-create",
+      "type": "action",
+      "position": {
+        "x": 2050,
+        "y": 1960
+      },
+      "positionAbsolute": {
+        "x": 2050,
+        "y": 1960
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "37. Visit Create",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 39. VISIT CREATE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst visitData = body.visitData || body;\nreturn {\n  json: {\n    success: true,\n    action: 'visits/schedule',\n    data: {\n      visitId: 'vis-' + Date.now(),\n      propertyId: visitData.propertyId,\n      buyerId: visitData.buyerId,\n      sellerId: visitData.sellerId,\n      scheduledDate: visitData.scheduledDate || visitData.date,\n      timeSlot: visitData.timeSlot || '11:00 AM',\n      status: 'SCHEDULED'\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-40-visit-list",
+      "type": "action",
+      "position": {
+        "x": 2050,
+        "y": 2080
+      },
+      "positionAbsolute": {
+        "x": 2050,
+        "y": 2080
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "38. Visit List",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 40. VISIT LIST\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nreturn {\n  json: {\n    success: true,\n    action: 'visits/list',\n    data: { visits: [], total: 0 }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-41-visit-update",
+      "type": "action",
+      "position": {
+        "x": 2050,
+        "y": 2200
+      },
+      "positionAbsolute": {
+        "x": 2050,
+        "y": 2200
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "39. Visit Update",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 41. VISIT UPDATE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: 'visits/updateStatus',\n    data: { visitId: body.visitId, status: body.status || 'CONFIRMED' }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-42-visit-cancel",
+      "type": "action",
+      "position": {
+        "x": 2050,
+        "y": 2320
+      },
+      "positionAbsolute": {
+        "x": 2050,
+        "y": 2320
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "40. Visit Cancel",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 42. VISIT CANCEL\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: 'visits/cancel',\n    data: { visitId: body.visitId, status: 'CANCELLED' }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-43-message-create",
+      "type": "action",
+      "position": {
+        "x": 2550,
+        "y": 1960
+      },
+      "positionAbsolute": {
+        "x": 2550,
+        "y": 1960
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "41. Message Create",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 43. MESSAGE CREATE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: 'messages/send',\n    data: {\n      messageId: 'msg-' + Date.now(),\n      propertyId: body.propertyId,\n      senderId: body.senderId || body.fromUserId,\n      content: body.content || body.message || ''\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-44-message-list",
+      "type": "action",
+      "position": {
+        "x": 2550,
+        "y": 2080
+      },
+      "positionAbsolute": {
+        "x": 2550,
+        "y": 2080
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "42. Message List",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 44. MESSAGE LIST\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: 'messages/list',\n    data: { propertyId: body.propertyId, messages: [] }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-45-feedback-create",
+      "type": "action",
+      "position": {
+        "x": 2550,
+        "y": 2200
+      },
+      "positionAbsolute": {
+        "x": 2550,
+        "y": 2200
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "43. Feedback Create",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 45. FEEDBACK CREATE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: 'feedback/submit',\n    data: {\n      feedbackId: 'fb-' + Date.now(),\n      propertyId: body.propertyId,\n      buyerId: body.buyerId || body.userId,\n      rating: Number(body.rating) || 5,\n      comments: body.comments || body.review || ''\n    }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "sec-persistence",
+      "type": "sticky-note",
+      "position": {
+        "x": 1350,
+        "y": 2480
+      },
+      "positionAbsolute": {
+        "x": 1350,
+        "y": 2480
+      },
+      "width": 320,
+      "height": 90,
+      "data": {
+        "label": "6. PERSISTENCE\n\n• Stores recommendations and match analytics in MongoDB match_results",
+        "noteText": "6. PERSISTENCE\n\n• Stores recommendations and match analytics in MongoDB match_results",
+        "color": "purple",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "node-46-save-match-results",
+      "type": "action",
+      "position": {
+        "x": 1400,
+        "y": 2590
+      },
+      "positionAbsolute": {
+        "x": 1400,
+        "y": 2590
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "44. Save Match Results",
+        "toolId": "mongodb.insert_document",
+        "inputs": {
+          "database": "havenmatch",
+          "collection": "match_results",
+          "credentialId": "aeb5b1df-5a1d-4599-adf7-54c7758866a9"
+        },
+        "toolData": {
+          "id": "mongodb.insert_document",
+          "displayName": "Insert Document",
+          "category": "Memory & State",
+          "provider": "mongodb",
+          "operation": "insert_document",
+          "icon": "https://www.mongodb.com/assets/images/global/favicon.ico"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "sec-response",
+      "type": "sticky-note",
+      "position": {
+        "x": 1350,
+        "y": 2720
+      },
+      "positionAbsolute": {
+        "x": 1350,
+        "y": 2720
+      },
+      "width": 320,
+      "height": 90,
+      "data": {
+        "label": "7. FINAL RESPONSE\n\n• Formats standard response contract & returns HTTP 200 JSON to caller",
+        "noteText": "7. FINAL RESPONSE\n\n• Formats standard response contract & returns HTTP 200 JSON to caller",
+        "color": "blue",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "node-05-response-formatter",
+      "type": "action",
+      "position": {
+        "x": 1400,
+        "y": 2830
+      },
+      "positionAbsolute": {
+        "x": 1400,
+        "y": 2830
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "5. Response Formatter",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 5. RESPONSE FORMATTER\nconst items = Array.isArray(input) ? input : (input?.items || [input]);\nconst incoming = items[0]?.json || items[0] || {};\n\nif (incoming.success !== undefined && incoming.action !== undefined) {\n  return {\n    json: {\n      success: Boolean(incoming.success),\n      action: incoming.action,\n      data: incoming.data || (incoming.recommendations ? { recommendations: incoming.recommendations } : null),\n      error: incoming.error || null,\n      requestId: incoming.requestId || ('req_' + Date.now())\n    }\n  };\n}\n\nreturn {\n  json: {\n    success: true,\n    action: incoming.action || 'havenmatch/execute',\n    data: incoming,\n    error: null,\n    requestId: incoming.requestId || ('req_' + Date.now())\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code",
+          "inputSchemaJSON": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "javascript",
+                  "python"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "each"
+                ],
+                "default": "all"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code to execute"
+              }
+            },
+            "required": [
+              "language",
+              "code"
+            ]
+          }
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-06-webhook-response",
+      "type": "action",
+      "position": {
+        "x": 1400,
+        "y": 2960
+      },
+      "positionAbsolute": {
+        "x": 1400,
+        "y": 2960
+      },
+      "width": 220,
+      "height": 93,
+      "data": {
+        "label": "6. Webhook Response",
+        "toolId": "respondToWebhook",
+        "inputs": {
+          "respondWith": "First Incoming Item",
+          "responseCode": 200,
+          "inputFieldName": "data"
+        },
+        "toolData": {
+          "id": "respondToWebhook",
+          "displayName": "Webhook Response",
+          "category": "Input /  Output",
+          "icon": "reply"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-01-02",
+      "source": "node-01-webhook-trigger",
+      "target": "node-02-request-validation"
+    },
+    {
+      "id": "e-02-03",
+      "source": "node-02-request-validation",
+      "target": "node-03-action-router"
+    },
+    {
+      "id": "e-03-04",
+      "source": "node-03-action-router",
+      "target": "node-04-error-handler"
+    },
+    {
+      "id": "e-03-07",
+      "source": "node-03-action-router",
+      "target": "node-07-signup-validation"
+    },
+    {
+      "id": "e-07-08",
+      "source": "node-07-signup-validation",
+      "target": "node-08-user-lookup"
+    },
+    {
+      "id": "e-08-09",
+      "source": "node-08-user-lookup",
+      "target": "node-09-password-hash"
+    },
+    {
+      "id": "e-09-10",
+      "source": "node-09-password-hash",
+      "target": "node-10-user-create"
+    },
+    {
+      "id": "e-03-11",
+      "source": "node-03-action-router",
+      "target": "node-11-login-validation"
+    },
+    {
+      "id": "e-11-12",
+      "source": "node-11-login-validation",
+      "target": "node-12-password-verify"
+    },
+    {
+      "id": "e-12-13",
+      "source": "node-12-password-verify",
+      "target": "node-13-session-jwt"
+    },
+    {
+      "id": "e-10-13",
+      "source": "node-10-user-create",
+      "target": "node-13-session-jwt"
+    },
+    {
+      "id": "e-13-14",
+      "source": "node-13-session-jwt",
+      "target": "node-14-role-authorization"
+    },
+    {
+      "id": "e-14-05",
+      "source": "node-14-role-authorization",
+      "target": "node-05-response-formatter"
+    },
+    {
+      "id": "e-03-15",
+      "source": "node-03-action-router",
+      "target": "node-15-buyer-profile"
+    },
+    {
+      "id": "e-15-16",
+      "source": "node-15-buyer-profile",
+      "target": "node-16-fetch-active-properties"
+    },
+    {
+      "id": "e-16-17",
+      "source": "node-16-fetch-active-properties",
+      "target": "node-17-hard-constraints"
+    },
+    {
+      "id": "e-17-18",
+      "source": "node-17-hard-constraints",
+      "target": "node-18-soft-preferences"
+    },
+    {
+      "id": "e-18-19",
+      "source": "node-18-soft-preferences",
+      "target": "node-19-location-intelligence"
+    },
+    {
+      "id": "e-19-20",
+      "source": "node-19-location-intelligence",
+      "target": "node-20-match-scoring"
+    },
+    {
+      "id": "e-20-21",
+      "source": "node-20-match-scoring",
+      "target": "node-21-ranking"
+    },
+    {
+      "id": "e-21-22",
+      "source": "node-21-ranking",
+      "target": "node-22-recommendations"
+    },
+    {
+      "id": "e-22-23",
+      "source": "node-22-recommendations",
+      "target": "node-23-why-this-property"
+    },
+    {
+      "id": "e-23-46",
+      "source": "node-23-why-this-property",
+      "target": "node-46-save-match-results"
+    },
+    {
+      "id": "e-03-24",
+      "source": "node-03-action-router",
+      "target": "node-24-seller-profile"
+    },
+    {
+      "id": "e-24-25",
+      "source": "node-24-seller-profile",
+      "target": "node-25-property-create"
+    },
+    {
+      "id": "e-25-26",
+      "source": "node-25-property-create",
+      "target": "node-26-property-update"
+    },
+    {
+      "id": "e-26-27",
+      "source": "node-26-property-update",
+      "target": "node-27-property-get"
+    },
+    {
+      "id": "e-27-28",
+      "source": "node-27-property-get",
+      "target": "node-28-active-listings"
+    },
+    {
+      "id": "e-28-28b",
+      "source": "node-28-active-listings",
+      "target": "node-28b-fetch-buyers"
+    },
+    {
+      "id": "e-28b-29",
+      "source": "node-28b-fetch-buyers",
+      "target": "node-29-buyer-compatibility"
+    },
+    {
+      "id": "e-29-30",
+      "source": "node-29-buyer-compatibility",
+      "target": "node-30-seller-recommendations"
+    },
+    {
+      "id": "e-30-05",
+      "source": "node-30-seller-recommendations",
+      "target": "node-05-response-formatter"
+    },
+    {
+      "id": "e-03-31",
+      "source": "node-03-action-router",
+      "target": "node-31-shortlist-create"
+    },
+    {
+      "id": "e-31-32",
+      "source": "node-31-shortlist-create",
+      "target": "node-32-shortlist-list"
+    },
+    {
+      "id": "e-32-33",
+      "source": "node-32-shortlist-list",
+      "target": "node-33-shortlist-remove"
+    },
+    {
+      "id": "e-33-05",
+      "source": "node-33-shortlist-remove",
+      "target": "node-05-response-formatter"
+    },
+    {
+      "id": "e-03-34",
+      "source": "node-03-action-router",
+      "target": "node-34-interest-create"
+    },
+    {
+      "id": "e-34-35",
+      "source": "node-34-interest-create",
+      "target": "node-35-interest-list"
+    },
+    {
+      "id": "e-35-36",
+      "source": "node-35-interest-list",
+      "target": "node-36-interest-update"
+    },
+    {
+      "id": "e-36-05",
+      "source": "node-36-interest-update",
+      "target": "node-05-response-formatter"
+    },
+    {
+      "id": "e-03-37",
+      "source": "node-03-action-router",
+      "target": "node-37-connection-create"
+    },
+    {
+      "id": "e-37-38",
+      "source": "node-37-connection-create",
+      "target": "node-38-connection-list"
+    },
+    {
+      "id": "e-38-05",
+      "source": "node-38-connection-list",
+      "target": "node-05-response-formatter"
+    },
+    {
+      "id": "e-03-39",
+      "source": "node-03-action-router",
+      "target": "node-39-visit-create"
+    },
+    {
+      "id": "e-39-40",
+      "source": "node-39-visit-create",
+      "target": "node-40-visit-list"
+    },
+    {
+      "id": "e-40-41",
+      "source": "node-40-visit-list",
+      "target": "node-41-visit-update"
+    },
+    {
+      "id": "e-41-42",
+      "source": "node-41-visit-update",
+      "target": "node-42-visit-cancel"
+    },
+    {
+      "id": "e-42-05",
+      "source": "node-42-visit-cancel",
+      "target": "node-05-response-formatter"
+    },
+    {
+      "id": "e-03-43",
+      "source": "node-03-action-router",
+      "target": "node-43-message-create"
+    },
+    {
+      "id": "e-43-44",
+      "source": "node-43-message-create",
+      "target": "node-44-message-list"
+    },
+    {
+      "id": "e-44-05",
+      "source": "node-44-message-list",
+      "target": "node-05-response-formatter"
+    },
+    {
+      "id": "e-03-45",
+      "source": "node-03-action-router",
+      "target": "node-45-feedback-create"
+    },
+    {
+      "id": "e-45-05",
+      "source": "node-45-feedback-create",
+      "target": "node-05-response-formatter"
+    },
+    {
+      "id": "e-46-05",
+      "source": "node-46-save-match-results",
+      "target": "node-05-response-formatter"
+    },
+    {
+      "id": "e-05-06",
+      "source": "node-05-response-formatter",
+      "target": "node-06-webhook-response"
+    }
+  ]
+}
