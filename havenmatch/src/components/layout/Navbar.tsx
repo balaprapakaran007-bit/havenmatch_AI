@@ -3,22 +3,20 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useLifestyle } from '../../context/LifestyleContext';
 import { matchingService, BackendStatus } from '../../services/matchingService';
+import { AddPropertyModal } from '../property/AddPropertyModal';
 import {
   Sparkles,
   Compass,
   Heart,
-  Scale,
   Building2,
   Users,
-  PlusCircle,
+  Plus,
   Menu,
   X,
   MapPin,
   LogOut,
   User,
   CheckCircle2,
-  Zap,
-  Radio,
   Home
 } from 'lucide-react';
 
@@ -35,6 +33,7 @@ export const Navbar: React.FC = () => {
   } = useApp();
   const { requirements, setRequirements } = useLifestyle();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAddPropertyModalOpen, setIsAddPropertyModalOpen] = useState(false);
   const [backendStatus, setBackendStatus] = useState<BackendStatus>(matchingService.getStatus());
 
   useEffect(() => {
@@ -45,7 +44,6 @@ export const Navbar: React.FC = () => {
   }, []);
 
   const cities = ['Coimbatore', 'Chennai', 'Bengaluru', 'Hyderabad', 'Pune', 'Mumbai'];
-
 
   const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedCity = e.target.value;
@@ -119,25 +117,19 @@ export const Navbar: React.FC = () => {
                 <span>AI Match</span>
               </Link>
 
-              {role === 'BUYER' ? (
-                <Link to="/buyer/dashboard" className={navLinkClass(isActive('/buyer/dashboard'))}>
-                  <Heart className="w-4 h-4 text-orange-600" />
-                  <span>Saved ({savedPropertyIds.length})</span>
-                </Link>
-              ) : (
-                <Link to="/owner/dashboard" className={navLinkClass(isActive('/owner/dashboard'))}>
-                  <Building2 className="w-4 h-4 text-orange-600" />
-                  <span>Owner Dashboard</span>
-                </Link>
-              )}
-
-              <Link
-                to="/owner/add-property"
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-orange-700 hover:text-orange-800 hover:bg-orange-50/70 rounded-lg transition-all"
-              >
-                <PlusCircle className="w-4 h-4 text-orange-600" />
-                <span>Post Free</span>
+              <Link to="/saved" className={navLinkClass(isActive('/saved') || isActive('/buyer/dashboard'))}>
+                <Heart className="w-4 h-4 text-orange-600" />
+                <span>Saved ({savedPropertyIds.length})</span>
               </Link>
+
+              <button
+                type="button"
+                onClick={() => setIsAddPropertyModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-orange-700 hover:text-orange-800 hover:bg-orange-50/70 rounded-lg transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4 text-orange-600" />
+                <span>+ Add Property</span>
+              </button>
             </nav>
 
             {/* Right Action Icons & Auth */}
@@ -186,7 +178,7 @@ export const Navbar: React.FC = () => {
                       logout();
                       showToast('Signed out successfully');
                     }}
-                    className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                    className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                     title="Sign Out"
                   >
                     <LogOut className="w-4 h-4" />
@@ -216,7 +208,7 @@ export const Navbar: React.FC = () => {
 
         {/* Mobile Drawer Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-5 space-y-2 shadow-lg">
+          <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-5 space-y-2 shadow-lg text-left">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">City</span>
               <select
@@ -239,15 +231,8 @@ export const Navbar: React.FC = () => {
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700"
               >
-                Home
-              </Link>
-              <Link
-                to={userSession ? '/ai-matching' : '/auth?redirect=/ai-matching'}
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700"
-              >
-                <Sparkles className="w-4 h-4 text-orange-600" />
-                Start AI Lifestyle Matching
+                <Home className="w-4 h-4 text-orange-600" />
+                <span>Home</span>
               </Link>
               <Link
                 to="/recommendations"
@@ -255,87 +240,48 @@ export const Navbar: React.FC = () => {
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700"
               >
                 <Compass className="w-4 h-4 text-orange-600" />
-                Property Recommendations
+                <span>Explore Properties</span>
               </Link>
               <Link
-                to="/buyer/dashboard"
-                onClick={() => {
-                  setRole('BUYER');
-                  setMobileMenuOpen(false);
-                }}
+                to={userSession ? '/ai-matching' : '/auth?redirect=/ai-matching'}
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700"
+              >
+                <Sparkles className="w-4 h-4 text-orange-600" />
+                <span>AI Lifestyle Matching</span>
+              </Link>
+              <Link
+                to="/saved"
+                onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700"
               >
                 <Heart className="w-4 h-4 text-orange-600" />
-                Buyer Dashboard ({savedPropertyIds.length} Saved)
+                <span>Saved Shortlist ({savedPropertyIds.length})</span>
               </Link>
-              <Link
-                to="/owner/dashboard"
+              <button
+                type="button"
                 onClick={() => {
-                  setRole('SELLER');
                   setMobileMenuOpen(false);
+                  setIsAddPropertyModalOpen(true);
                 }}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-orange-700 bg-orange-50 border border-orange-200 text-left"
               >
-                <Building2 className="w-4 h-4 text-orange-600" />
-                Owner Dashboard
-              </Link>
-              <Link
-                to="/owner/matches"
-                onClick={() => {
-                  setRole('SELLER');
-                  setMobileMenuOpen(false);
-                }}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700"
-              >
-                <Users className="w-4 h-4 text-orange-600" />
-                Buyer Matches (For Owners)
-              </Link>
-              <Link
-                to="/owner/add-property"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-orange-700 bg-orange-50 border border-orange-200"
-              >
-                <PlusCircle className="w-4 h-4 text-orange-600" />
-                List Property (FREE)
-              </Link>
-
-              <div className="pt-3 mt-2 border-t border-slate-100">
-                {userSession ? (
-                  <div className="flex items-center justify-between px-2">
-                    <div className="text-xs">
-                      <span className="font-bold text-slate-800 block">{userSession.name}</span>
-                      <span className="text-[11px] text-slate-400 font-mono">{userSession.phone}</span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        logout();
-                        setMobileMenuOpen(false);
-                        showToast('Signed out successfully');
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-rose-600 bg-rose-50"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      Sign Out
-                    </button>
-                  </div>
-                ) : (
-                  <Link
-                    to="/auth"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block w-full py-2 rounded-xl bg-orange-600 text-white text-xs font-bold text-center"
-                  >
-                    Sign In to HavenMatch AI
-                  </Link>
-                )}
-              </div>
+                <Plus className="w-4 h-4 text-orange-600" />
+                <span>+ Add Property</span>
+              </button>
             </div>
           </div>
         )}
       </header>
 
-      {/* Mobile Fixed Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1 shadow-lg">
+      {/* Mobile Fixed Bottom Navigation Bar (Screen 6: Home | Explore | + Add Property | AI Match | Saved) */}
+      <nav 
+        aria-label="Mobile Bottom Navigation"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 shadow-lg pb-[max(env(safe-area-inset-bottom),0.375rem)]"
+      >
         <div className="grid grid-cols-5 items-center justify-around text-center">
+          
+          {/* 1. Home */}
           <Link
             to="/"
             className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
@@ -346,6 +292,7 @@ export const Navbar: React.FC = () => {
             <span>Home</span>
           </Link>
 
+          {/* 2. Explore */}
           <Link
             to="/recommendations"
             className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
@@ -356,50 +303,60 @@ export const Navbar: React.FC = () => {
             <span>Explore</span>
           </Link>
 
-          <Link
-            to="/owner/add-property"
-            className="flex flex-col items-center justify-center -mt-3.5"
+          {/* 3. + Add Property (Prominent Center Action) */}
+          <button
+            type="button"
+            onClick={() => setIsAddPropertyModalOpen(true)}
+            className="flex flex-col items-center justify-center -mt-4 cursor-pointer focus:outline-none group"
+            aria-label="Add Property"
           >
-            <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center shadow-md hover:scale-105 transition-transform">
-              <PlusCircle className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center shadow-md group-hover:scale-105 group-active:scale-95 transition-transform">
+              <Plus className="w-6 h-6 stroke-[2.5]" />
             </div>
-            <span className="text-[9px] font-bold text-orange-600 mt-0.5">Post Free</span>
-          </Link>
+            <span className="text-[9px] font-bold text-orange-600 mt-0.5 tracking-tight">Add Property</span>
+          </button>
 
+          {/* 4. AI Match */}
           <Link
             to={userSession ? '/ai-matching' : '/auth?redirect=/ai-matching'}
             className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
-              isActive('/ai-matching') || isActive('/choose-role') || isActive('/goal') || isActive('/basic-details') || isActive('/preferences')
+              isActive('/ai-matching') || isActive('/choose-role') || isActive('/goal')
                 ? 'text-orange-600 font-bold'
                 : 'text-slate-500 hover:text-slate-900'
             }`}
           >
-            <Sparkles className="w-5 h-5 mb-0.5" />
+            <Sparkles className="w-5 h-5 mb-0.5 text-orange-600" />
             <span>AI Match</span>
           </Link>
 
+          {/* 5. Saved */}
           <Link
-            to={role === 'BUYER' ? '/buyer/dashboard' : '/owner/dashboard'}
-            className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
-              isActive('/buyer/dashboard') || isActive('/owner/dashboard')
+            to="/saved"
+            className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors relative ${
+              isActive('/saved') || isActive('/buyer/dashboard')
                 ? 'text-orange-600 font-bold'
                 : 'text-slate-500 hover:text-slate-900'
             }`}
           >
-            {role === 'BUYER' ? (
-              <>
-                <Heart className="w-5 h-5 mb-0.5" />
-                <span>Saved ({savedPropertyIds.length})</span>
-              </>
-            ) : (
-              <>
-                <Building2 className="w-5 h-5 mb-0.5" />
-                <span>Owner</span>
-              </>
-            )}
+            <div className="relative">
+              <Heart className="w-5 h-5 mb-0.5" />
+              {savedPropertyIds.length > 0 && (
+                <span className="absolute -top-1 -right-2 px-1 text-[9px] font-bold rounded-full bg-orange-600 text-white leading-tight">
+                  {savedPropertyIds.length}
+                </span>
+              )}
+            </div>
+            <span>Saved</span>
           </Link>
+
         </div>
       </nav>
+
+      {/* Global Add Property Bottom Sheet Modal */}
+      <AddPropertyModal
+        isOpen={isAddPropertyModalOpen}
+        onClose={() => setIsAddPropertyModalOpen(false)}
+      />
     </>
   );
 };

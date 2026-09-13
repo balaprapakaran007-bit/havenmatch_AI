@@ -10,7 +10,7 @@ import { VisitSchedulerModal } from './components/visit/VisitSchedulerModal';
 import { propertyService } from './services/propertyService';
 import { Property } from './types';
 
-// 14 Dedicated Page Routes
+// Dedicated Page Routes
 import { HomePage } from './pages/HomePage';
 import { AuthPage } from './pages/AuthPage';
 import { ChooseRolePage } from './pages/ChooseRolePage';
@@ -28,6 +28,7 @@ import { BuyerMatchesPage } from './pages/BuyerMatchesPage';
 import { MessagesPage } from './pages/MessagesPage';
 import { ComparePage } from './pages/ComparePage';
 import { AIMatchingPage } from './pages/AIMatchingPage';
+import { SavedPage } from './pages/SavedPage';
 
 const AppContent: React.FC = () => {
   const { openVisitModal, setOpenVisitModal, visitTargetPropertyId } = useApp();
@@ -53,6 +54,9 @@ const AppContent: React.FC = () => {
 
           {/* Dedicated AI Matching Journey */}
           <Route path="/ai-matching" element={<AIMatchingPage />} />
+
+          {/* Dedicated Saved Page */}
+          <Route path="/saved" element={<SavedPage />} />
 
           {/* 2. Authentication Page */}
           <Route path="/auth" element={<AuthPage />} />
