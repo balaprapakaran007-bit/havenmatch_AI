@@ -44,7 +44,7 @@ export const OwnerDashboardPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* Left Sidebar Navigation (Matching Screen 12) */}
-          <aside className="lg:col-span-3 space-y-6 text-left">
+          <aside className="hidden lg:block lg:col-span-3 space-y-6 text-left">
             <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm">
               <div className="flex items-center gap-2.5 pb-4 mb-4 border-b border-slate-100">
                 <div className="w-9 h-9 rounded-xl bg-orange-600 flex items-center justify-center text-white">
@@ -75,16 +75,6 @@ export const OwnerDashboardPage: React.FC = () => {
                 <Link to="/owner/matches" className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50">
                   <Users className="w-4 h-4 text-slate-400" />
                   <span>Buyer Matches</span>
-                </Link>
-
-                <Link to="/owner/dashboard" className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50">
-                  <Heart className="w-4 h-4 text-slate-400" />
-                  <span>Interests</span>
-                </Link>
-
-                <Link to="/owner/dashboard" className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50">
-                  <Calendar className="w-4 h-4 text-slate-400" />
-                  <span>Visits</span>
                 </Link>
 
                 <Link to="/messages" className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50">
@@ -126,10 +116,35 @@ export const OwnerDashboardPage: React.FC = () => {
 
               <Link
                 to="/owner/add-property"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all shrink-0"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all shrink-0"
               >
                 <PlusCircle className="w-4 h-4" />
                 <span>Add Property</span>
+              </Link>
+            </div>
+
+            {/* Mobile Quick Action Pills */}
+            <div className="lg:hidden flex items-center gap-2 overflow-x-auto pb-1">
+              <Link
+                to="/owner/add-property"
+                className="flex-1 min-w-[120px] py-2 px-3 rounded-xl bg-orange-600 text-white font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-xs"
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                <span>Add Listing</span>
+              </Link>
+              <Link
+                to="/owner/matches"
+                className="flex-1 min-w-[120px] py-2 px-3 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-xs"
+              >
+                <Users className="w-3.5 h-3.5 text-orange-600" />
+                <span>Buyer Matches</span>
+              </Link>
+              <Link
+                to="/messages"
+                className="flex-1 min-w-[100px] py-2 px-3 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-xs"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-orange-600" />
+                <span>Messages</span>
               </Link>
             </div>
 

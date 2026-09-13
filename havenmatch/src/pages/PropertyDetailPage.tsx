@@ -548,6 +548,26 @@ export const PropertyDetailPage: React.FC = () => {
         </div>
       )}
 
+      {/* Mobile Sticky Bottom Action Bar */}
+      <div className="md:hidden fixed bottom-14 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2.5 shadow-lg flex items-center gap-3">
+        <button
+          onClick={() => setShowInterestModal(true)}
+          className="flex-1 py-2.5 px-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-sm text-center"
+        >
+          {interestSubmitted ? '✓ Expressed' : 'Express Interest'}
+        </button>
+        <button
+          onClick={() => {
+            setVisitTargetPropertyId(property.id);
+            setOpenVisitModal(true);
+          }}
+          className="flex-1 py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1"
+        >
+          <Calendar className="w-3.5 h-3.5 text-orange-400" />
+          <span>Schedule Visit</span>
+        </button>
+      </div>
+
     </div>
   );
 };

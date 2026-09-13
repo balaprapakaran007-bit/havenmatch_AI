@@ -23,7 +23,7 @@ export const ChooseRolePage: React.FC = () => {
       <div className="max-w-4xl mx-auto w-full text-center">
         
         {/* Back Link */}
-        <div className="flex items-center justify-between mb-8 max-w-2xl mx-auto">
+        <div className="flex items-center justify-start mb-6 max-w-2xl mx-auto">
           <Link
             to="/"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors"
@@ -31,12 +31,6 @@ export const ChooseRolePage: React.FC = () => {
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Home</span>
           </Link>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-orange-600 flex items-center justify-center text-white">
-              <Sparkles className="w-3.5 h-3.5" />
-            </div>
-            <span className="text-sm font-black text-slate-900">HavenMatch AI</span>
-          </div>
         </div>
 
         {/* Title Header */}

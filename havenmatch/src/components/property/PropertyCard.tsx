@@ -153,8 +153,8 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, match }) =
             <span className="truncate">{property.locality}, {property.city}</span>
           </p>
 
-          {/* Key Specs Bar */}
-          <div className="flex items-center gap-3 py-2 px-3 bg-slate-50 rounded-xl text-xs text-slate-700 mb-3 border border-slate-100">
+          {/* Key Specs Bar (Mobile Responsive & Overflow Safe) */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 py-2 px-3 bg-slate-50 rounded-xl text-xs text-slate-700 mb-3 border border-slate-100">
             <span className="font-semibold">{property.bhk} BHK</span>
             <span className="text-slate-300">•</span>
             <span>{property.bathrooms} Bath</span>

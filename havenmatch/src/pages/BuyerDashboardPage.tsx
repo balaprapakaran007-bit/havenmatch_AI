@@ -57,7 +57,7 @@ export const BuyerDashboardPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* Left Sidebar Navigation (Matching Screen 6) */}
-          <aside className="lg:col-span-3 space-y-6">
+          <aside className="hidden lg:block lg:col-span-3 space-y-6">
             <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm text-left">
               {/* Brand Header */}
               <div className="flex items-center gap-2.5 pb-5 mb-4 border-b border-slate-100">
@@ -121,14 +121,21 @@ export const BuyerDashboardPage: React.FC = () => {
 
                 <button
                   onClick={() => setActiveTab('VISITS')}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-colors text-left ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-colors text-left ${
                     activeTab === 'VISITS'
                       ? 'bg-orange-50 text-orange-700 shadow-xs'
                       : 'text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  <Calendar className="w-4 h-4 text-slate-400" />
-                  <span>Visits</span>
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-4 h-4 text-slate-400" />
+                    <span>Visits</span>
+                  </div>
+                  {visits.length > 0 && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800">
+                      {visits.length}
+                    </span>
+                  )}
                 </button>
 
                 <Link
@@ -170,7 +177,7 @@ export const BuyerDashboardPage: React.FC = () => {
           </aside>
 
           {/* Right Main Content Area */}
-          <main className="lg:col-span-9 space-y-8 text-left">
+          <main className="lg:col-span-9 space-y-6 sm:space-y-8 text-left">
             
             {/* Greeting Header (Matching Screen 6) */}
             <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -185,11 +192,48 @@ export const BuyerDashboardPage: React.FC = () => {
 
               <Link
                 to="/recommendations"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all shrink-0"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all shrink-0"
               >
                 <span>Find More Matches</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
+            </div>
+
+            {/* Mobile Tab Switcher Bar */}
+            <div className="lg:hidden flex items-center gap-2 p-1 bg-white rounded-2xl border border-slate-200 shadow-xs overflow-x-auto">
+              <button
+                onClick={() => setActiveTab('MATCHES')}
+                className={`flex-1 min-w-[100px] py-2 px-3 rounded-xl text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 ${
+                  activeTab === 'MATCHES'
+                    ? 'bg-orange-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Matches</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('SAVED')}
+                className={`flex-1 min-w-[100px] py-2 px-3 rounded-xl text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 ${
+                  activeTab === 'SAVED'
+                    ? 'bg-orange-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <Heart className="w-3.5 h-3.5" />
+                <span>Shortlist ({savedPropertyIds.length})</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('VISITS')}
+                className={`flex-1 min-w-[100px] py-2 px-3 rounded-xl text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 ${
+                  activeTab === 'VISITS'
+                    ? 'bg-orange-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Visits ({visits.length})</span>
+              </button>
             </div>
 
             {activeTab === 'MATCHES' && (
