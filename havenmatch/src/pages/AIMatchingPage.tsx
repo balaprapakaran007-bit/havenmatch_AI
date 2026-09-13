@@ -2,682 +2,732 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useLifestyle } from '../context/LifestyleContext';
-import { APIRecommendation } from '../services/matchingService';
-import { propertyService } from '../services/propertyService';
-import { callAPI } from '../services/api';
-import { Property, MatchResult, PropertyType } from '../types';
 import {
   Sparkles,
-  MapPin,
-  Heart,
-  Scale,
   ArrowRight,
-  CheckCircle2,
-  Clock,
-  Check,
-  Hospital,
-  GraduationCap,
-  Trees,
-  AlertCircle,
-  Loader2,
-  ChevronRight,
+  ArrowLeft,
+  Search,
   Home,
   Building,
   Briefcase,
-  SlidersHorizontal,
-  ChevronDown
+  MapPin,
+  Clock,
+  Compass,
+  Check,
+  CheckCircle2,
+  Trees,
+  Hospital,
+  GraduationCap,
+  ShoppingBag,
+  Bus,
+  Car,
+  DollarSign,
+  BedDouble,
+  Heart,
+  Scale
 } from 'lucide-react';
 
 export const AIMatchingPage: React.FC = () => {
   const navigate = useNavigate();
-  const {
-    userSession,
-    toggleSaveProperty,
-    isSaved,
-    toggleCompareProperty,
-    isCompared,
-    navigateToProperty,
-    showToast
-  } = useApp();
+  const { userSession, showToast } = useApp();
+  const { requirements, setRequirements, lifestyle, setLifestyle, refreshMatches } = useLifestyle();
 
-  const { requirements, setRequirements, lifestyle, setLifestyle } = useLifestyle();
-
-  // Redirect if not signed in
+  // Redirect to Auth if not logged in
   useEffect(() => {
     if (!userSession) {
       navigate('/auth?redirect=/ai-matching', { replace: true });
     }
   }, [userSession, navigate]);
 
-  // Form State (Screen 2)
-  const [naturalQuery, setNaturalQuery] = useState(
-    'I need a 2 BHK in Coimbatore under ₹70 lakhs, close to Tidel Park, quiet area with good hospitals and schools.'
-  );
+  // Step state (1 to 8: 1-7 questions, 8 is Review step)
+  const [step, setStep] = useState<number>(1);
+
+  // Form State
   const [intent, setIntent] = useState<'BUY' | 'RENT'>(requirements.intent || 'BUY');
-  const [budgetMax, setBudgetMax] = useState<number>(requirements.budgetMax || 7000000);
-  const [selectedBhk, setSelectedBhk] = useState<number[]>(requirements.bhk || [2, 3]);
-  const [city, setCity] = useState(requirements.city || 'Coimbatore');
-  const [selectedLocalities, setSelectedLocalities] = useState<string[]>(
-    requirements.preferredLocalities && requirements.preferredLocalities.length > 0
-      ? requirements.preferredLocalities
-      : ['Saravanampatti', 'Peelamedu']
+  const [budgetMin, setBudgetMin] = useState<number>(
+    intent === 'BUY' ? (requirements.budgetMin || 4000000) : 10000
   );
-  const [workLocation, setWorkLocation] = useState(lifestyle.workplaceLocation || 'Tidel Park, Coimbatore');
-  const [selectedPreferences, setSelectedPreferences] = useState<string[]>([
-    'Quiet Area',
-    'Good Hospitals',
-    'Near Top Schools',
-    'Siruvani Water'
+  const [budgetMax, setBudgetMax] = useState<number>(
+    intent === 'BUY' ? (requirements.budgetMax || 7000000) : 35000
+  );
+  const [selectedBhk, setSelectedBhk] = useState<number>(
+    requirements.bhk?.[0] || 2
+  );
+  const [selectedLocality, setSelectedLocality] = useState<string>(
+    requirements.preferredLocalities?.[0] || 'Saravanampatti'
+  );
+  const [localitySearch, setLocalitySearch] = useState<string>('');
+  
+  const [workLocation, setWorkLocation] = useState<string>(
+    lifestyle.workplaceLocation || 'Tidel Park'
+  );
+  const [workSearch, setWorkSearch] = useState<string>('');
+  
+  const [commuteTime, setCommuteTime] = useState<string>('Within 15 minutes');
+  
+  const [selectedLifestyle, setSelectedLifestyle] = useState<string[]>([
+    'Quiet Neighbourhood',
+    'Good Hospitals'
   ]);
 
-  // Results State (Screen 3)
-  const [isEvaluating, setIsEvaluating] = useState(false);
-  const [results, setResults] = useState<Array<{ property: Property; match: MatchResult }>>([]);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [activeFilterChip, setActiveFilterChip] = useState<'Best Match' | 'Near to Work' | 'Budget Friendly' | 'Quiet Area'>('Best Match');
-  const [allProperties, setAllProperties] = useState<Property[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    propertyService.getProperties().then(setAllProperties);
-  }, []);
-
-  const availableLocalities = [
+  // Available Data
+  const localitiesList = [
     'Saravanampatti',
     'Peelamedu',
     'Race Course',
     'RS Puram',
-    'Vadavalli',
+    'Tidel Park (Keeranatham)',
     'Saibaba Colony',
+    'Vadavalli',
     'Gandhipuram',
-    'Singanallur'
+    'Singanallur',
+    'Kovaipudur'
   ];
 
-  const quickPrompts = [
-    { label: '⚡ 2 BHK near IT Corridor', text: 'I need a 2 BHK in Coimbatore under ₹70 lakhs, close to Tidel Park, quiet area with good hospitals and schools.', budget: 7000000, bhk: [2], work: 'Tidel Park' },
-    { label: '🌿 Quiet 3 BHK in Vadavalli', text: 'Looking for a quiet 3 BHK villa in Vadavalli with green space and near top schools under ₹95 lakhs.', budget: 9500000, bhk: [3], work: 'RS Puram' },
-    { label: '💼 Rental 2 BHK near TIDEL', text: 'Rental 2 BHK flat near Tidel Park under ₹22,000/month with 24/7 security and water.', budget: 22000, bhk: [2], work: 'Tidel Park', intent: 'RENT' as const }
+  const workLocationsList = [
+    'Tidel Park',
+    'Saravanampatti',
+    'Peelamedu',
+    'Coimbatore IT Park',
+    'RS Puram',
+    'Gandhipuram',
+    'Other'
   ];
 
-  const preferenceOptions = [
-    'Quiet Area',
-    'Good Hospitals',
-    'Near Top Schools',
-    'Siruvani Water',
-    'Pet Friendly',
-    'East Facing / Vastu',
-    'Power Backup 100%'
+  const commuteOptions = [
+    { label: 'Within 15 minutes', icon: '👉' },
+    { label: 'Within 30 minutes', icon: '👉' },
+    { label: 'Within 45 minutes', icon: '⏱️' },
+    { label: 'No preference', icon: '🧭' }
   ];
 
-  const togglePreference = (pref: string) => {
-    setSelectedPreferences((prev) =>
-      prev.includes(pref) ? prev.filter((p) => p !== pref) : [...prev, pref]
+  const lifestyleOptions = [
+    { id: 'quiet', label: 'Quiet Neighbourhood', icon: Trees, color: 'text-emerald-600 bg-emerald-50' },
+    { id: 'hospitals', label: 'Good Hospitals', icon: Hospital, color: 'text-rose-600 bg-rose-50' },
+    { id: 'schools', label: 'Reputed Schools', icon: GraduationCap, color: 'text-sky-600 bg-sky-50' },
+    { id: 'parks', label: 'Parks & Greenery', icon: Trees, color: 'text-emerald-600 bg-emerald-50' },
+    { id: 'shopping', label: 'Shopping & Malls', icon: ShoppingBag, color: 'text-pink-600 bg-pink-50' },
+    { id: 'transit', label: 'Public Transport', icon: Bus, color: 'text-cyan-600 bg-cyan-50' }
+  ];
+
+  const toggleLifestyleOption = (label: string) => {
+    setSelectedLifestyle((prev) =>
+      prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]
     );
   };
 
-  const toggleLocality = (loc: string) => {
-    setSelectedLocalities((prev) =>
-      prev.includes(loc) ? prev.filter((l) => l !== loc) : [...prev, loc]
-    );
-  };
-
-  const executeAIMatch = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setIsEvaluating(true);
-    setHasSearched(true);
-
-    try {
-      const updatedReq = {
-        ...requirements,
-        intent,
-        city,
-        preferredLocalities: selectedLocalities,
-        budgetMax,
-        bhk: selectedBhk
-      };
-      setRequirements(updatedReq);
-
-      const buyerPayload = {
-        userId: userSession?.id || 'usr-guest',
-        name: userSession?.name || 'Buyer',
-        email: userSession?.email || '',
-        phone: userSession?.phone || '',
-        intent,
-        city,
-        preferredLocalities: selectedLocalities,
-        budgetMax,
-        budgetMin: 0,
-        bhk: selectedBhk,
-        naturalQuery,
-        lifestyle: {
-          workplaceLocation: workLocation,
-          priorities: selectedPreferences
-        }
-      };
-
-      const response = await callAPI<{
-        success: boolean;
-        recommendations: APIRecommendation[];
-      }>('matching/buyer', {
-        action: 'matching/buyer',
-        buyer: buyerPayload
-      });
-
-      const loadedProps = allProperties.length > 0 ? allProperties : await propertyService.getProperties();
-      const propMap = new Map(loadedProps.map((p) => [p.id, p]));
-
-      const matchedPairs: Array<{ property: Property; match: MatchResult }> = [];
-
-      if (response && response.recommendations && response.recommendations.length > 0) {
-        for (const rec of response.recommendations) {
-          const prop = propMap.get(rec.propertyId) || (rec.property as Property);
-          if (prop) {
-            const matchResult: MatchResult = {
-              propertyId: prop.id,
-              overallScore: rec.matchScore || 92,
-              tag: rec.matchScore >= 90 ? 'Top Lifestyle Fit' : 'Recommended',
-              breakdown: {
-                budgetFit: { score: 95, label: 'Excellent', detail: 'Budget match' },
-                commuteFit: { score: 90, label: 'Excellent', detail: `Commute to ${workLocation}` },
-                healthcareFit: { score: 92, label: 'Excellent', detail: 'Healthcare access' },
-                transitFit: { score: 88, label: 'Good', detail: 'Transit access' },
-                schoolsFit: { score: 90, label: 'Good', detail: 'Schools access' },
-                neighborhoodFit: { score: 94, label: 'Excellent', detail: 'Neighborhood match' },
-                amenitiesFit: { score: 90, label: 'Excellent', detail: 'Amenities' }
-              },
-              whyItMatches: rec.whyThisProperty && rec.whyThisProperty.length > 0
-                ? rec.whyThisProperty
-                : [
-                    'Within your budget',
-                    `Fits your ${prop.bhk} BHK requirement`,
-                    'Close to your workplace',
-                    'Matches your preference for a quiet neighbourhood',
-                    'Good access to healthcare and schools'
-                  ],
-              tradeOffs: rec.tradeOffs || [],
-              lifestyleSummary: rec.explanation || `${rec.matchScore}% match for your lifestyle.`
-            };
-
-            matchedPairs.push({ property: prop, match: matchResult });
-          }
-        }
-      }
-
-      setResults(matchedPairs);
-      showToast(`Found ${matchedPairs.length} homes that fit your lifestyle!`);
-
-      setTimeout(() => {
-        document.getElementById('ai-match-results')?.scrollIntoView({ behavior: 'smooth' });
-      }, 200);
-    } catch (err) {
-      console.error('[AIMatchingPage] Error executing match:', err);
-      showToast('Failed to evaluate matches from AI engine.');
-    } finally {
-      setIsEvaluating(false);
+  const handleNext = () => {
+    if (step < 8) {
+      setStep((s) => s + 1);
     }
   };
 
-  if (!userSession) return null;
+  const handleBack = () => {
+    if (step > 1) {
+      setStep((s) => s - 1);
+    } else {
+      navigate('/');
+    }
+  };
+
+  const handleFindMatches = async () => {
+    setIsSubmitting(true);
+    try {
+      // 1. Update Lifestyle Context requirements
+      const updatedReq = {
+        ...requirements,
+        intent,
+        city: 'Coimbatore',
+        preferredLocalities: [selectedLocality],
+        budgetMin,
+        budgetMax,
+        bhk: [selectedBhk]
+      };
+      setRequirements(updatedReq);
+
+      // 2. Update Lifestyle Context preferences
+      const updatedLife = {
+        ...lifestyle,
+        workplaceLocation: workLocation,
+        maxCommuteMins: commuteTime.includes('15') ? 15 : commuteTime.includes('30') ? 30 : commuteTime.includes('45') ? 45 : 60,
+        priorities: {
+          ...lifestyle.priorities,
+          quietness: selectedLifestyle.includes('Quiet Neighbourhood') ? 'HIGH' : 'MEDIUM',
+          healthcare: selectedLifestyle.includes('Good Hospitals') ? 'HIGH' : 'MEDIUM',
+          schools: selectedLifestyle.includes('Reputed Schools') ? 'HIGH' : 'MEDIUM',
+          parks: selectedLifestyle.includes('Parks & Greenery') ? 'HIGH' : 'MEDIUM',
+          supermarkets: selectedLifestyle.includes('Shopping & Malls') ? 'HIGH' : 'MEDIUM',
+          transit: selectedLifestyle.includes('Public Transport') ? 'HIGH' : 'MEDIUM'
+        } as any
+      };
+      setLifestyle(updatedLife);
+
+      showToast('Finding your perfect lifestyle matches...');
+      
+      // Auto-trigger matches calculation
+      await refreshMatches().catch(() => {});
+      
+      navigate('/recommendations');
+    } catch (err) {
+      console.error('Error submitting match requirements:', err);
+      navigate('/recommendations');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const formatBudgetDisplay = () => {
+    if (intent === 'BUY') {
+      const minLakhs = Math.round(budgetMin / 100000);
+      const maxLakhs = Math.round(budgetMax / 100000);
+      return `₹${minLakhs} Lakhs - ₹${maxLakhs} Lakhs`;
+    } else {
+      return `₹${budgetMin.toLocaleString('en-IN')} - ₹${budgetMax.toLocaleString('en-IN')}/mo`;
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] py-6 px-4 sm:px-6 lg:px-8 pb-24 md:pb-12">
-      <div className="max-w-3xl mx-auto space-y-6">
-        
-        {/* Header Title (Screen 2) */}
-        <div className="text-center space-y-1">
-          <div className="inline-flex items-center gap-2 text-orange-600 font-extrabold text-xl sm:text-2xl tracking-tight">
-            <Sparkles className="w-6 h-6" />
-            <h1 className="text-slate-900">AI Match</h1>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
-            Tell us about your lifestyle. Our AI will find homes that fit you.
-          </p>
-        </div>
-
-        {/* AI Bot Greeting Card (Screen 2) */}
-        <div className="bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50/50 rounded-3xl p-4 sm:p-5 border border-orange-200/80 shadow-xs flex items-center gap-4 text-left">
-          {/* Cute 3D Bot Avatar */}
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white shadow-md border border-orange-100 flex items-center justify-center shrink-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center shadow-xs">
-              <Sparkles className="w-6 h-6" />
-            </div>
-          </div>
-
-          {/* Speech Bubble */}
-          <div className="relative bg-white rounded-2xl p-3 sm:p-4 border border-orange-100 shadow-sm flex-1">
-            <p className="text-xs sm:text-sm font-semibold text-slate-800 leading-snug">
-              Hi! I'm <span className="text-orange-600 font-extrabold">Haven AI</span> 👋
-              <br />
-              Let's find a home that fits your life. What are you looking for?
-            </p>
-          </div>
-        </div>
-
-        {/* Form Container (Screen 2 Lifestyle Inputs) */}
-        <form onSubmit={executeAIMatch} className="bg-white rounded-3xl p-5 sm:p-7 shadow-lg border border-slate-200/90 space-y-5 text-left">
-          
-          {/* Natural Language Box */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-orange-600" />
-              <span>Describe Naturally in Plain Words</span>
-            </label>
-            <textarea
-              rows={2}
-              value={naturalQuery}
-              onChange={(e) => setNaturalQuery(e.target.value)}
-              placeholder="e.g. I need a 2 BHK in Coimbatore under ₹70 lakhs, close to Tidel Park, quiet area with good hospitals and schools."
-              className="w-full rounded-2xl p-3.5 bg-slate-50 border border-slate-200 focus:bg-white focus:border-orange-500 text-xs sm:text-sm text-slate-800 focus:outline-none transition-all resize-none"
-            />
-            {/* Quick Prompts */}
-            <div className="flex flex-wrap gap-1.5 pt-0.5">
-              {quickPrompts.map((qp, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => {
-                    setNaturalQuery(qp.text);
-                    setBudgetMax(qp.budget);
-                    setSelectedBhk(qp.bhk);
-                    setWorkLocation(qp.work);
-                    if (qp.intent) setIntent(qp.intent);
-                  }}
-                  className="text-[11px] px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-200 font-semibold transition-colors cursor-pointer"
-                >
-                  {qp.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <hr className="border-slate-100" />
-
-          {/* Interactive Form Fields matching Screen 2 */}
-          <div className="space-y-3">
-            
-            {/* 1. Buy or Rent */}
-            <div className="p-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
-                  <Home className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-slate-900 block">Buy or Rent?</span>
-                  <span className="text-[11px] text-slate-500">
-                    {intent === 'BUY' ? 'Looking to Buy a home' : 'Looking for Rental'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIntent('BUY');
-                    setBudgetMax(7000000);
-                  }}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    intent === 'BUY' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600'
-                  }`}
-                >
-                  Buy
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIntent('RENT');
-                    setBudgetMax(25000);
-                  }}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    intent === 'RENT' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600'
-                  }`}
-                >
-                  Rent
-                </button>
-              </div>
-            </div>
-
-            {/* 2. Your Budget */}
-            <div className="p-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
-                    <Briefcase className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-slate-900 block">Your Budget</span>
-                    <span className="text-[11px] text-slate-500">
-                      {intent === 'BUY' ? 'e.g. ₹40 - ₹70 Lakhs' : 'e.g. ₹15,000 - ₹30,000/mo'}
-                    </span>
-                  </div>
-                </div>
-                <span className="text-xs font-black text-orange-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                  {intent === 'BUY'
-                    ? budgetMax >= 10000000
-                      ? `₹${(budgetMax / 10000000).toFixed(2)} Cr`
-                      : `₹${(budgetMax / 100000).toFixed(0)} Lakhs`
-                    : `₹${budgetMax.toLocaleString('en-IN')}/mo`}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={intent === 'BUY' ? 2000000 : 8000}
-                max={intent === 'BUY' ? 20000000 : 60000}
-                step={intent === 'BUY' ? 500000 : 1000}
-                value={budgetMax}
-                onChange={(e) => setBudgetMax(Number(e.target.value))}
-                className="w-full accent-orange-600 cursor-pointer"
-              />
-            </div>
-
-            {/* 3. Bedrooms / BHK */}
-            <div className="p-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-                  <Building className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-slate-900 block">Bedrooms</span>
-                  <span className="text-[11px] text-slate-500">e.g. 2 or 3 BHK</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5">
-                {[1, 2, 3, 4].map((num) => (
-                  <button
-                    key={num}
-                    type="button"
-                    onClick={() => {
-                      setSelectedBhk((prev) =>
-                        prev.includes(num) ? prev.filter((b) => b !== num) : [...prev, num]
-                      );
-                    }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                      selectedBhk.includes(num)
-                        ? 'bg-orange-600 text-white border-orange-600 shadow-xs'
-                        : 'bg-white text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    {num} BHK{num === 4 ? '+' : ''}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 4. Preferred Location */}
-            <div className="p-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                  <MapPin className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-slate-900 block">Preferred Location</span>
-                  <span className="text-[11px] text-slate-500">e.g. Coimbatore ({city})</span>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {availableLocalities.map((loc) => {
-                  const isSel = selectedLocalities.includes(loc);
-                  return (
-                    <button
-                      key={loc}
-                      type="button"
-                      onClick={() => toggleLocality(loc)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1 ${
-                        isSel
-                          ? 'bg-orange-50 text-orange-800 border-orange-300 font-bold'
-                          : 'bg-white text-slate-600 border-slate-200'
-                      }`}
-                    >
-                      {isSel && <Check className="w-3 h-3 text-orange-600" />}
-                      <span>{loc}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 5. Work / College Location */}
-            <div className="p-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
-                  <Briefcase className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-slate-900 block">Work / College Location</span>
-                  <span className="text-[11px] text-slate-500">e.g. Tidel Park, Saravanampatti</span>
-                </div>
-              </div>
-              <input
-                type="text"
-                value={workLocation}
-                onChange={(e) => setWorkLocation(e.target.value)}
-                placeholder="e.g. Tidel Park, Peelamedu"
-                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:border-orange-500"
-              />
-            </div>
-
-            {/* 6. Lifestyle Preferences */}
-            <div className="p-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                  <Heart className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-slate-900 block">Lifestyle Preferences</span>
-                  <span className="text-[11px] text-slate-500">Quiet area, schools, hospitals...</span>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {preferenceOptions.map((pref) => {
-                  const isSel = selectedPreferences.includes(pref);
-                  return (
-                    <button
-                      key={pref}
-                      type="button"
-                      onClick={() => togglePreference(pref)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1 ${
-                        isSel
-                          ? 'bg-orange-50 text-orange-800 border-orange-300 font-bold'
-                          : 'bg-white text-slate-600 border-slate-200'
-                      }`}
-                    >
-                      {isSel && <Check className="w-3 h-3 text-orange-600" />}
-                      <span>{pref}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-          </div>
-
-          {/* Primary CTA Button (Screen 2) */}
+    <div className="min-h-screen bg-[#FAF9F6] flex flex-col justify-between py-4 px-4 sm:px-6 max-w-lg mx-auto pb-32 md:pb-12 text-left select-none">
+      
+      {/* Top Header & Segmented Progress Bar */}
+      <div className="w-full space-y-3 pt-2">
+        <div className="flex items-center justify-between">
           <button
-            type="submit"
-            disabled={isEvaluating}
-            className="w-full py-4 rounded-2xl bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white font-extrabold text-base shadow-lg shadow-orange-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
+            onClick={handleBack}
+            className="w-9 h-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
           >
-            {isEvaluating ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>AI is understanding your lifestyle...</span>
-              </>
-            ) : (
-              <>
-                <span>Find My Matches</span>
-                <ArrowRight className="w-5 h-5" />
-              </>
-            )}
+            <ArrowLeft className="w-4 h-4" />
           </button>
-        </form>
 
-        {/* Results Section (Screen 3: Your AI Matches) */}
-        {hasSearched && (
-          <div id="ai-match-results" className="space-y-5 pt-4 text-left">
-            
-            {/* Results Header (Screen 3) */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-orange-600 font-extrabold text-lg sm:text-xl">
-                <Sparkles className="w-5 h-5" />
-                <h2 className="text-slate-900">Your AI Matches</h2>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-500">
-                We found {results.length} homes that fit your lifestyle.
+          <div className="flex items-center gap-1.5">
+            <div className="w-7 h-7 rounded-lg bg-orange-600 flex items-center justify-center text-white shadow-xs">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <span className="font-black text-base sm:text-lg tracking-tight text-slate-900">
+              HavenMatch <span className="text-orange-600">AI</span>
+            </span>
+          </div>
+
+          <div className="w-9" /> {/* Spacer for balance */}
+        </div>
+
+        {/* Top Progress Bar (Steps 1 to 7) */}
+        {step <= 7 ? (
+          <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+            <div
+              className="bg-orange-600 h-full rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${(step / 7) * 100}%` }}
+            />
+          </div>
+        ) : (
+          <div className="w-full bg-orange-600 h-1.5 rounded-full" />
+        )}
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 py-6 flex flex-col justify-center space-y-6">
+        
+        {/* =================================================================== */}
+        {/* STEP 1: What are you looking for? (Buy / Rent) */}
+        {/* =================================================================== */}
+        {step === 1 && (
+          <div className="space-y-6 animate-fade-in">
+            <div>
+              <span className="text-xs font-bold text-orange-600 tracking-wide uppercase">
+                Step 1 <span className="text-slate-400 font-normal">of 7</span>
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
+                What are you looking for?
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Let's start with the basics.
               </p>
             </div>
 
-            {/* Filter Chips (Screen 3: Best Match, Near to Work, Budget Friendly, Quiet Area) */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              {(['Best Match', 'Near to Work', 'Budget Friendly', 'Quiet Area'] as const).map((chip) => {
-                const isActive = activeFilterChip === chip;
+            <div className="space-y-3.5 pt-2">
+              {/* Buy Card */}
+              <div
+                onClick={() => setIntent('BUY')}
+                className={`p-4 sm:p-5 rounded-2xl border-2 transition-all flex items-center gap-4 cursor-pointer ${
+                  intent === 'BUY'
+                    ? 'border-orange-500 bg-orange-50/50 shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                  intent === 'BUY' ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  <Home className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900">Buy</h3>
+                  <p className="text-xs sm:text-sm text-slate-500">I want to buy a home</p>
+                </div>
+              </div>
+
+              {/* Rent Card */}
+              <div
+                onClick={() => setIntent('RENT')}
+                className={`p-4 sm:p-5 rounded-2xl border-2 transition-all flex items-center gap-4 cursor-pointer ${
+                  intent === 'RENT'
+                    ? 'border-orange-500 bg-orange-50/50 shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                  intent === 'RENT' ? 'bg-teal-100 text-teal-600' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  <Building className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900">Rent</h3>
+                  <p className="text-xs sm:text-sm text-slate-500">I want to rent a home</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* STEP 2: What's your budget? */}
+        {/* =================================================================== */}
+        {step === 2 && (
+          <div className="space-y-6 animate-fade-in">
+            <div>
+              <span className="text-xs font-bold text-orange-600 tracking-wide uppercase">
+                Step 2 <span className="text-slate-400 font-normal">of 7</span>
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
+                What's your budget?
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Set your preferred price range.
+              </p>
+            </div>
+
+            {/* Price Pill */}
+            <div className="flex justify-center pt-2">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-50 border border-orange-200 text-orange-900 font-extrabold text-sm sm:text-base shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                <span>{formatBudgetDisplay()}</span>
+              </div>
+            </div>
+
+            {/* Slider Card */}
+            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-2xs space-y-4">
+              <div className="space-y-2">
+                <input
+                  type="range"
+                  min={intent === 'BUY' ? 2000000 : 5000}
+                  max={intent === 'BUY' ? 20000000 : 80000}
+                  step={intent === 'BUY' ? 500000 : 2000}
+                  value={budgetMax}
+                  onChange={(e) => setBudgetMax(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-600"
+                />
+                <div className="flex justify-between text-xs font-bold text-slate-600">
+                  <span>{intent === 'BUY' ? '₹20L' : '₹5k'}</span>
+                  <span>{intent === 'BUY' ? '₹70L' : '₹35k'}</span>
+                  <span>{intent === 'BUY' ? '₹2 Cr+' : '₹80k+'}</span>
+                </div>
+              </div>
+
+              {/* Tip Box */}
+              <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200/80 flex items-start gap-2.5 text-xs text-amber-900 font-medium">
+                <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>We'll show homes within your budget.</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* STEP 3: How many bedrooms? */}
+        {/* =================================================================== */}
+        {step === 3 && (
+          <div className="space-y-6 animate-fade-in">
+            <div>
+              <span className="text-xs font-bold text-orange-600 tracking-wide uppercase">
+                Step 3 <span className="text-slate-400 font-normal">of 7</span>
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
+                How many bedrooms?
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Select your preferred home size.
+              </p>
+            </div>
+
+            {/* BHK Grid */}
+            <div className="grid grid-cols-4 gap-2.5 pt-2">
+              {[1, 2, 3, 4].map((bhk) => {
+                const isSelected = selectedBhk === bhk;
                 return (
                   <button
-                    key={chip}
+                    key={bhk}
                     type="button"
-                    onClick={() => setActiveFilterChip(chip)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                      isActive
-                        ? 'bg-orange-600 text-white shadow-xs'
-                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                    onClick={() => setSelectedBhk(bhk)}
+                    className={`py-4 rounded-2xl font-extrabold text-sm sm:text-base transition-all border cursor-pointer ${
+                      isSelected
+                        ? 'bg-orange-600 text-white border-orange-600 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
                     }`}
                   >
-                    {chip}
+                    <div>{bhk === 4 ? '4' : bhk}</div>
+                    <div className="text-[11px] font-semibold">{bhk === 4 ? 'BHK+' : 'BHK'}</div>
                   </button>
                 );
               })}
             </div>
 
-            {/* Property Match Cards (Screen 3) */}
-            {results.length === 0 ? (
-              <div className="bg-white rounded-3xl p-10 text-center border border-slate-200">
-                <AlertCircle className="w-12 h-12 text-orange-500 mx-auto mb-2" />
-                <h3 className="text-base font-bold text-slate-900">No properties matched all strict criteria</h3>
-                <p className="text-xs text-slate-500 mt-1">Try broadening budget or location selections.</p>
-              </div>
-            ) : (
-              <div className="space-y-5">
-                {results.map(({ property, match }) => {
-                  const saved = isSaved(property.id);
+            {/* Tip Box */}
+            <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/80 flex items-start gap-2.5 text-xs text-amber-900 font-medium">
+              <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>
+                {selectedBhk === 2
+                  ? 'Perfect! 2 BHK is a popular choice in Coimbatore.'
+                  : selectedBhk === 3
+                  ? 'Great! 3 BHK offers spacious living for families.'
+                  : selectedBhk === 1
+                  ? 'Ideal for young professionals and couples.'
+                  : 'Luxury 4+ BHK residences with premium amenities.'}
+              </span>
+            </div>
+          </div>
+        )}
 
+        {/* =================================================================== */}
+        {/* STEP 4: Where do you want to live? */}
+        {/* =================================================================== */}
+        {step === 4 && (
+          <div className="space-y-6 animate-fade-in">
+            <div>
+              <span className="text-xs font-bold text-orange-600 tracking-wide uppercase">
+                Step 4 <span className="text-slate-400 font-normal">of 7</span>
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
+                Where do you want to live?
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Select your preferred location.
+              </p>
+            </div>
+
+            {/* Search Input Box */}
+            <div className="flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+              <Search className="w-4 h-4 text-slate-400 shrink-0" />
+              <input
+                type="text"
+                value={localitySearch}
+                onChange={(e) => setLocalitySearch(e.target.value)}
+                placeholder="Search locality or area..."
+                className="w-full text-sm text-slate-800 placeholder:text-slate-400 bg-transparent focus:outline-none"
+              />
+            </div>
+
+            {/* Locality Chips Cloud */}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {localitiesList
+                .filter((loc) => loc.toLowerCase().includes(localitySearch.toLowerCase()))
+                .map((loc) => {
+                  const isSelected = selectedLocality === loc;
                   return (
-                    <article
-                      key={property.id}
-                      className="bg-white rounded-3xl overflow-hidden border border-slate-200/90 shadow-md hover:shadow-xl transition-all"
+                    <button
+                      key={loc}
+                      type="button"
+                      onClick={() => setSelectedLocality(loc)}
+                      className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all border cursor-pointer ${
+                        isSelected
+                          ? 'bg-orange-50 text-orange-800 border-orange-500 shadow-2xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                      }`}
                     >
-                      {/* Image with Match Badge & Save Button */}
-                      <div
-                        onClick={() => {
-                          navigateToProperty(property.id);
-                          navigate(`/property/${property.id}`);
-                        }}
-                        className="relative aspect-[16/9] sm:aspect-[16/8] overflow-hidden bg-slate-100 cursor-pointer group"
-                      >
-                        <img
-                          src={property.images?.[0] || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1000&q=80'}
-                          alt={property.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-
-                        {/* Top Left: Match Badge (Screen 3) */}
-                        <div className="absolute top-3 left-3 bg-emerald-600 text-white px-3 py-1 rounded-full text-xs font-black shadow-md flex items-center gap-1">
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span>{match.overallScore}% Match</span>
-                        </div>
-
-                        {/* Top Right: Heart Save Icon */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleSaveProperty(property.id);
-                          }}
-                          className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 backdrop-blur-md text-slate-700 flex items-center justify-center shadow-md hover:scale-110 transition-transform cursor-pointer"
-                        >
-                          <Heart className={`w-4 h-4 ${saved ? 'fill-rose-500 text-rose-500' : ''}`} />
-                        </button>
-                      </div>
-
-                      {/* Content Body */}
-                      <div className="p-5 sm:p-6 space-y-4">
-                        
-                        {/* Price, BHK, Location */}
-                        <div className="space-y-1">
-                          <p className="text-xl sm:text-2xl font-black text-slate-900">
-                            {property.priceDisplay || `₹${(property.price / 100000).toFixed(0)} Lakhs`}
-                          </p>
-                          <h3 className="text-sm sm:text-base font-bold text-slate-800">
-                            {property.bhk} BHK {property.propertyType}
-                          </h3>
-                          <p className="text-xs text-slate-500 flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 text-orange-600 shrink-0" />
-                            <span>{property.locality}, {property.city}</span>
-                          </p>
-                        </div>
-
-                        {/* Highlight indicators (Screen 3: Commute, Schools, Hospitals) */}
-                        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100">
-                            <Clock className="w-3.5 h-3.5 text-orange-600" />
-                            <span>18 min commute</span>
-                          </span>
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100">
-                            <GraduationCap className="w-3.5 h-3.5 text-blue-600" />
-                            <span>Near schools</span>
-                          </span>
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100">
-                            <Hospital className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Good Hospitals</span>
-                          </span>
-                        </div>
-
-                        {/* "Why this home?" Accordion / Box (Screen 3) */}
-                        <div className="p-4 rounded-2xl bg-orange-50/70 border border-orange-100 space-y-2">
-                          <span className="text-xs font-extrabold text-orange-950 block">Why this home?</span>
-                          <ul className="space-y-1 text-xs text-slate-700">
-                            {match.whyItMatches.map((reason, rIdx) => (
-                              <li key={rIdx} className="flex items-start gap-2">
-                                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5 stroke-[3]" />
-                                <span>{reason}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        {/* Actions (Screen 3: View Details & Contact Seller) */}
-                        <div className="grid grid-cols-2 gap-3 pt-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigateToProperty(property.id);
-                              navigate(`/property/${property.id}`);
-                            }}
-                            className="py-3 rounded-xl bg-white border border-slate-200 text-slate-800 font-bold text-xs sm:text-sm hover:bg-slate-50 transition-colors cursor-pointer"
-                          >
-                            View Details
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              showToast(`Connecting with seller of ${property.title}...`);
-                              navigate('/messages');
-                            }}
-                            className="py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs sm:text-sm shadow-sm transition-colors cursor-pointer"
-                          >
-                            Contact Seller
-                          </button>
-                        </div>
-
-                      </div>
-                    </article>
+                      {loc}
+                    </button>
                   );
                 })}
-              </div>
-            )}
+            </div>
+          </div>
+        )}
 
+        {/* =================================================================== */}
+        {/* STEP 5: Where do you work or study? */}
+        {/* =================================================================== */}
+        {step === 5 && (
+          <div className="space-y-6 animate-fade-in">
+            <div>
+              <span className="text-xs font-bold text-orange-600 tracking-wide uppercase">
+                Step 5 <span className="text-slate-400 font-normal">of 7</span>
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
+                Where do you work or study?
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                This helps us suggest homes with better commute.
+              </p>
+            </div>
+
+            {/* Search Input Box */}
+            <div className="flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+              <Search className="w-4 h-4 text-slate-400 shrink-0" />
+              <input
+                type="text"
+                value={workSearch}
+                onChange={(e) => setWorkSearch(e.target.value)}
+                placeholder="Search location..."
+                className="w-full text-sm text-slate-800 placeholder:text-slate-400 bg-transparent focus:outline-none"
+              />
+            </div>
+
+            {/* Work Location Chips */}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {workLocationsList
+                .filter((loc) => loc.toLowerCase().includes(workSearch.toLowerCase()))
+                .map((loc) => {
+                  const isSelected = workLocation === loc;
+                  return (
+                    <button
+                      key={loc}
+                      type="button"
+                      onClick={() => setWorkLocation(loc)}
+                      className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all border cursor-pointer ${
+                        isSelected
+                          ? 'bg-orange-50 text-orange-800 border-orange-500 shadow-2xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <Briefcase className="w-3.5 h-3.5 text-orange-600" />
+                      <span>{loc}</span>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* STEP 6: What's your preferred commute time? */}
+        {/* =================================================================== */}
+        {step === 6 && (
+          <div className="space-y-6 animate-fade-in">
+            <div>
+              <span className="text-xs font-bold text-orange-600 tracking-wide uppercase">
+                Step 6 <span className="text-slate-400 font-normal">of 7</span>
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
+                What's your preferred commute time?
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Choose how far you're comfortable travelling.
+              </p>
+            </div>
+
+            {/* Commute Options List */}
+            <div className="space-y-2.5 pt-1">
+              {commuteOptions.map((opt) => {
+                const isSelected = commuteTime === opt.label;
+                return (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    onClick={() => setCommuteTime(opt.label)}
+                    className={`w-full p-3.5 sm:p-4 rounded-2xl font-bold text-xs sm:text-sm transition-all border flex items-center justify-between cursor-pointer ${
+                      isSelected
+                        ? 'bg-orange-50 text-orange-950 border-orange-500 shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-base">{opt.icon}</span>
+                      <span>{opt.label}</span>
+                    </div>
+                    {isSelected && <Check className="w-4 h-4 text-orange-600" />}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Tip Box */}
+            <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/80 flex items-start gap-2.5 text-xs text-amber-900 font-medium">
+              <Car className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>We'll prioritize homes closer to your workplace.</span>
+            </div>
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* STEP 7: What matters most to you? (Lifestyle Priorities) */}
+        {/* =================================================================== */}
+        {step === 7 && (
+          <div className="space-y-6 animate-fade-in">
+            <div>
+              <span className="text-xs font-bold text-orange-600 tracking-wide uppercase">
+                Step 7 <span className="text-slate-400 font-normal">of 7</span>
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
+                What matters most to you?
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Select your lifestyle preferences (multiple choice)
+              </p>
+            </div>
+
+            {/* 3-Column Lifestyle Grid */}
+            <div className="grid grid-cols-3 gap-2.5 pt-1">
+              {lifestyleOptions.map((opt) => {
+                const isSelected = selectedLifestyle.includes(opt.label);
+                const Icon = opt.icon;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => toggleLifestyleOption(opt.label)}
+                    className={`p-3 sm:p-4 rounded-2xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer min-h-[100px] ${
+                      isSelected
+                        ? 'border-orange-500 bg-orange-50 shadow-2xs'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center mb-1.5 ${opt.color}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <span className="text-[11px] sm:text-xs font-extrabold text-slate-900 leading-tight">
+                      {opt.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* FINAL STEP: Review your preferences */}
+        {/* =================================================================== */}
+        {step === 8 && (
+          <div className="space-y-6 animate-fade-in">
+            <div>
+              <span className="text-xs font-bold text-orange-600 tracking-wide uppercase">
+                Final Step
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
+                Review your preferences
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Looks good? Let's find your matches!
+              </p>
+            </div>
+
+            {/* Summary Card */}
+            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-3">
+              <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-800">
+                <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+                  <Home className="w-4 h-4" />
+                </div>
+                <span className="font-extrabold">{intent === 'BUY' ? 'Buy' : 'Rent'}</span>
+              </div>
+
+              <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-800">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <DollarSign className="w-4 h-4" />
+                </div>
+                <span className="font-extrabold">{formatBudgetDisplay()}</span>
+              </div>
+
+              <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-800">
+                <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                  <BedDouble className="w-4 h-4" />
+                </div>
+                <span className="font-extrabold">{selectedBhk === 4 ? '4+ BHK' : `${selectedBhk} BHK`}</span>
+              </div>
+
+              <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-800">
+                <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <span className="font-extrabold">{selectedLocality}</span>
+              </div>
+
+              <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-800">
+                <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center shrink-0">
+                  <Briefcase className="w-4 h-4" />
+                </div>
+                <span className="font-extrabold">{workLocation} (Work)</span>
+              </div>
+
+              <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-800">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                  <Car className="w-4 h-4" />
+                </div>
+                <span className="font-extrabold">{commuteTime}</span>
+              </div>
+
+              <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-800">
+                <div className="w-8 h-8 rounded-xl bg-green-100 text-green-700 flex items-center justify-center shrink-0">
+                  <Trees className="w-4 h-4" />
+                </div>
+                <span className="font-extrabold truncate">
+                  {selectedLifestyle.length > 0 ? selectedLifestyle.join(', ') : 'Balanced Lifestyle'}
+                </span>
+              </div>
+            </div>
           </div>
         )}
 
       </div>
+
+      {/* Bottom Navigation Buttons */}
+      <div className="w-full pt-4 space-y-3">
+        {step < 8 ? (
+          step > 1 ? (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleBack}
+                className="flex-1 py-3.5 px-4 rounded-2xl bg-white hover:bg-slate-50 text-slate-700 font-extrabold text-sm border border-slate-200 transition-all cursor-pointer text-center"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={handleNext}
+                className="flex-2 py-3.5 px-4 rounded-2xl bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white font-extrabold text-sm transition-all shadow-haven-sm hover:shadow-haven-md flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>Continue</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleNext}
+              className="w-full py-4 px-4 rounded-2xl bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white font-extrabold text-sm transition-all shadow-haven-sm hover:shadow-haven-md flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span>Continue</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          )
+        ) : (
+          <div className="space-y-3">
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={handleFindMatches}
+              className="w-full py-4 px-6 rounded-2xl bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white font-black text-base transition-all shadow-haven-md hover:shadow-haven-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              <span>{isSubmitting ? 'Analyzing 100+ Factors...' : 'Find My Matches'}</span>
+              <Sparkles className="w-5 h-5 text-amber-200" />
+            </button>
+
+            <p className="text-[11px] text-slate-500 text-center">
+              HavenMatch AI will analyze 100+ factors to find the best homes for you.
+            </p>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 };
