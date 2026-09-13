@@ -28,7 +28,7 @@ import { PropertyCard } from '../components/property/PropertyCard';
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { requirements, setRequirements } = useLifestyle();
-  const { savedPropertyIds, toggleSaveProperty } = useApp();
+  const { savedPropertyIds, toggleSaveProperty, userSession } = useApp();
 
   const [selectedIntent, setSelectedIntent] = useState<'BUY' | 'RENT'>('BUY');
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,6 +41,14 @@ export const HomePage: React.FC = () => {
       setFeaturedProperties(props.slice(0, 6));
     }).catch(() => {});
   }, []);
+
+  const handleFindMyHome = () => {
+    if (userSession) {
+      navigate('/ai-matching');
+    } else {
+      navigate('/auth?redirect=/ai-matching');
+    }
+  };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,8 +131,8 @@ export const HomePage: React.FC = () => {
               {/* Action Buttons & Social Proof */}
               <div className="flex flex-wrap items-center gap-4 pt-2">
                 <button
-                  onClick={() => navigate('/choose-role')}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm shadow-sm transition-all"
+                  onClick={handleFindMyHome}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm shadow-sm transition-all cursor-pointer"
                 >
                   <span>Find My Home</span>
                   <ArrowRight className="w-4 h-4" />
@@ -132,7 +140,7 @@ export const HomePage: React.FC = () => {
 
                 <button
                   onClick={() => navigate('/owner/add-property')}
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm border border-slate-200 shadow-xs transition-all"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm border border-slate-200 shadow-xs transition-all cursor-pointer"
                 >
                   <span>List My Property</span>
                 </button>
@@ -315,14 +323,14 @@ export const HomePage: React.FC = () => {
 
           <div className="pt-2 flex flex-wrap items-center justify-center gap-4">
             <button
-              onClick={() => navigate('/choose-role')}
-              className="px-7 py-3.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm shadow-lg transition-all"
+              onClick={handleFindMyHome}
+              className="px-7 py-3.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm shadow-lg transition-all cursor-pointer"
             >
               Start Matching Now
             </button>
             <button
               onClick={() => navigate('/owner/add-property')}
-              className="px-7 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm border border-white/20 transition-all"
+              className="px-7 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm border border-white/20 transition-all cursor-pointer"
             >
               Post Property Free
             </button>

@@ -305,6 +305,9 @@ function calculateLifestyleMatch(property, buyer) {
   const life = buyer?.lifestyle || {};
   const priorities = life.priorities || {};
 
+  const propCity = (property.city || '').toLowerCase();
+  const propLocality = (property.locality || '').toLowerCase();
+
   // 1. Budget Fit (out of 25)
   let budgetScore = 23;
   if (req.budgetMax && req.budgetMax > 0) {
@@ -319,18 +322,19 @@ function calculateLifestyleMatch(property, buyer) {
 
   // 2. Property Fit (out of 20)
   let propScore = 18;
-  if (req.bhk && req.bhk.length > 0) {
+  if (req.bhk && Array.isArray(req.bhk) && req.bhk.length > 0) {
     if (req.bhk.includes(property.bhk)) propScore += 2;
   }
   if (property.vastuCompliant && req.vastuRequired) propScore = Math.min(20, propScore + 1);
 
   // 3. Location & Commute Fit (out of 30)
   let locScore = 26;
-  if (req.city && property.city.toLowerCase() === req.city.toLowerCase()) locScore += 2;
+  if (req.city && propCity === req.city.toLowerCase()) locScore += 2;
   if (
     req.preferredLocalities &&
+    Array.isArray(req.preferredLocalities) &&
     req.preferredLocalities.some(
-      (l) => l.toLowerCase() === property.locality.toLowerCase()
+      (l) => l && propLocality.includes(l.toLowerCase())
     )
   ) {
     locScore += 2;
@@ -339,24 +343,24 @@ function calculateLifestyleMatch(property, buyer) {
 
   // 4. Lifestyle & Amenity Fit (out of 25)
   let lifeScore = 22;
-  if (priorities.healthcare === 'HIGH' && property.locality.includes('Peelamedu')) lifeScore += 2;
+  if (priorities.healthcare === 'HIGH' && propLocality.includes('peelamedu')) lifeScore += 2;
   if (priorities.commute === 'HIGH') lifeScore += 1;
   lifeScore = Math.min(25, lifeScore);
 
   const totalScore = budgetScore + propScore + locScore + lifeScore;
 
   const whyReasons = [
-    `Located in ${property.locality}, within prime commute target`,
-    `Budget fit: priced at ${property.priceDisplay} within your ceiling`,
-    `${property.bhk} BHK layout matching your space requirement with ${property.facing} facing`
+    `Located in ${property.locality || 'prime area'}, within prime commute target`,
+    `Budget fit: priced at ${property.priceDisplay || 'fair market value'} within your ceiling`,
+    `${property.bhk || 2} BHK layout matching your space requirement with ${property.facing || 'East'} facing`
   ];
 
-  if (property.waterSupply && property.waterSupply.includes('Siruvani')) {
+  if (property.waterSupply && String(property.waterSupply).includes('Siruvani')) {
     whyReasons.push('Verified Siruvani drinking water connection');
   }
 
   const tradeOffs = [];
-  if (property.floor > 3 && !property.amenities.includes('Lift Access')) {
+  if (property.floor > 3 && Array.isArray(property.amenities) && !property.amenities.includes('Lift Access')) {
     tradeOffs.push('Higher floor with no private elevator');
   }
   if (property.price > (req.budgetMax || 10000000) * 0.95) {
@@ -365,12 +369,12 @@ function calculateLifestyleMatch(property, buyer) {
 
   return {
     propertyId: property.propertyId || property.id || String(property._id),
-    title: property.title,
-    price: property.price,
-    city: property.city,
-    locality: property.locality,
-    bedrooms: property.bhk || property.bedrooms,
-    propertyType: property.propertyType,
+    title: property.title || 'Featured Property',
+    price: property.price || 0,
+    city: property.city || 'Coimbatore',
+    locality: property.locality || '',
+    bedrooms: property.bhk || property.bedrooms || 2,
+    propertyType: property.propertyType || 'Apartment',
     matchScore: totalScore,
     scoreBreakdown: {
       budget: budgetScore,

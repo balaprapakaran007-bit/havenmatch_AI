@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import {
   Sparkles,
@@ -16,7 +16,10 @@ import {
 
 export const AuthPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, showToast } = useApp();
+
+  const redirectParam = new URLSearchParams(location.search).get('redirect') || (location.state as any)?.from;
 
   const [mode, setMode] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
   const [activeTab, setActiveTab] = useState<'EMAIL' | 'MOBILE'>('EMAIL');
@@ -72,7 +75,9 @@ export const AuthPage: React.FC = () => {
 
       showToast(mode === 'LOGIN' ? 'Welcome back to HavenMatch AI!' : 'Account created successfully!');
 
-      if (finalRole === 'SELLER') {
+      if (redirectParam) {
+        navigate(redirectParam, { replace: true });
+      } else if (finalRole === 'SELLER') {
         navigate('/owner/dashboard');
       } else {
         navigate('/choose-role');

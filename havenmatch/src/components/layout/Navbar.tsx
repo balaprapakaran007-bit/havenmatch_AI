@@ -111,7 +111,10 @@ export const Navbar: React.FC = () => {
                 <span>Explore</span>
               </Link>
 
-              <Link to="/choose-role" className={navLinkClass(isActive('/choose-role') || isActive('/goal'))}>
+              <Link
+                to={userSession ? '/ai-matching' : '/auth?redirect=/ai-matching'}
+                className={navLinkClass(isActive('/ai-matching') || isActive('/choose-role') || isActive('/goal'))}
+              >
                 <Sparkles className="w-4 h-4 text-orange-600" />
                 <span>AI Match</span>
               </Link>
@@ -239,12 +242,12 @@ export const Navbar: React.FC = () => {
                 Home
               </Link>
               <Link
-                to="/choose-role"
+                to={userSession ? '/ai-matching' : '/auth?redirect=/ai-matching'}
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700"
               >
                 <Sparkles className="w-4 h-4 text-orange-600" />
-                Start Lifestyle Match Wizard
+                Start AI Lifestyle Matching
               </Link>
               <Link
                 to="/recommendations"
@@ -364,9 +367,9 @@ export const Navbar: React.FC = () => {
           </Link>
 
           <Link
-            to="/choose-role"
+            to={userSession ? '/ai-matching' : '/auth?redirect=/ai-matching'}
             className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
-              isActive('/choose-role') || isActive('/goal') || isActive('/basic-details') || isActive('/preferences')
+              isActive('/ai-matching') || isActive('/choose-role') || isActive('/goal') || isActive('/basic-details') || isActive('/preferences')
                 ? 'text-orange-600 font-bold'
                 : 'text-slate-500 hover:text-slate-900'
             }`}

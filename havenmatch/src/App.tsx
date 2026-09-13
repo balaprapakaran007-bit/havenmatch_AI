@@ -27,6 +27,7 @@ import { AddPropertyPage } from './pages/AddPropertyPage';
 import { BuyerMatchesPage } from './pages/BuyerMatchesPage';
 import { MessagesPage } from './pages/MessagesPage';
 import { ComparePage } from './pages/ComparePage';
+import { AIMatchingPage } from './pages/AIMatchingPage';
 
 const AppContent: React.FC = () => {
   const { openVisitModal, setOpenVisitModal, visitTargetPropertyId } = useApp();
@@ -49,6 +50,9 @@ const AppContent: React.FC = () => {
         <Routes>
           {/* 1. Home Page */}
           <Route path="/" element={<HomePage />} />
+
+          {/* Dedicated AI Matching Journey */}
+          <Route path="/ai-matching" element={<AIMatchingPage />} />
 
           {/* 2. Authentication Page */}
           <Route path="/auth" element={<AuthPage />} />
