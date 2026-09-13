@@ -72,117 +72,123 @@ export const HomePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#FAF9F6]">
-      {/* 1. HERO SECTION (Matching Screen 1 of Reference Design) */}
-      <section className="relative pt-8 pb-16 lg:pt-14 lg:pb-24 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
+      {/* 1. HERO SECTION (Matching Mobile & Desktop Reference Design) */}
+      <section className="relative pt-6 pb-12 lg:pt-14 lg:pb-20 overflow-hidden bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1920&q=80')" }}>
+        {/* Subtle Warm Gradient Overlay for Readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/92 via-white/85 to-white/70 backdrop-blur-[1px]"></div>
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl mx-auto lg:mx-0 space-y-5 text-left">
             
-            {/* Left Column: Editorial Headline & Search */}
-            <div className="lg:col-span-7 space-y-6 text-left">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-800 text-xs font-bold tracking-wide">
-                <Sparkles className="w-3.5 h-3.5 text-orange-600" />
-                <span>Next-Gen Lifestyle Intelligence</span>
-              </div>
+            {/* Top Pill Badge */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-50/90 border border-orange-200/90 text-orange-900 text-xs font-bold shadow-xs">
+              <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+              <span>Next-Gen Lifestyle Intelligence</span>
+            </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-[1.1]">
-                Find a home <br />
-                that fits <span className="text-orange-600">your life.</span>
-              </h1>
+            {/* Main Headline */}
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-[1.1]">
+              Find a home <br />
+              that fits <span className="text-orange-600">your life.</span>
+            </h1>
 
-              <p className="text-base sm:text-lg text-slate-600 font-normal leading-relaxed max-w-2xl">
-                Search beyond price and location. HavenMatch AI understands your lifestyle and connects you with homes that actually fit the way you live.
-              </p>
+            {/* Subtitle */}
+            <p className="text-sm sm:text-base text-slate-700 font-medium leading-relaxed max-w-xl">
+              Search beyond price and location. HavenMatch AI understands your lifestyle and connects you with homes that actually fit the way you live.
+            </p>
 
-              {/* Integrated Search Box */}
-              <form onSubmit={handleSearchSubmit} className="pt-2">
-                <div className="bg-white rounded-2xl p-2 sm:p-2.5 shadow-lg border border-slate-200 flex flex-col sm:flex-row items-center gap-2 max-w-2xl">
-                  <div className="flex items-center gap-2 flex-1 w-full px-3 py-2">
-                    <Search className="w-5 h-5 text-slate-400 shrink-0" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search city, locality, or property type..."
-                      className="w-full text-sm sm:text-base text-slate-800 placeholder:text-slate-400 focus:outline-none bg-transparent"
-                    />
-                  </div>
+            {/* Integrated Search Box */}
+            <form onSubmit={handleSearchSubmit} className="pt-1">
+              <div className="bg-white rounded-2xl p-3 shadow-xl border border-slate-200/90 flex flex-col gap-2.5 max-w-xl">
+                {/* Search Input Row */}
+                <div className="flex items-center gap-2.5 px-3 py-1.5 bg-slate-50/80 rounded-xl border border-slate-100">
+                  <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search city, locality, or property type..."
+                    className="w-full text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none bg-transparent"
+                  />
+                </div>
 
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                {/* Intent Dropdown + Search Button Row */}
+                <div className="grid grid-cols-12 gap-2">
+                  <div className="col-span-4 sm:col-span-4">
                     <select
                       value={selectedIntent}
                       onChange={(e) => setSelectedIntent(e.target.value as 'BUY' | 'RENT')}
-                      className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                      className="w-full bg-slate-100/90 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none cursor-pointer text-center"
                     >
                       <option value="BUY">Buy</option>
                       <option value="RENT">Rent</option>
                     </select>
+                  </div>
 
+                  <div className="col-span-8 sm:col-span-8">
                     <button
                       type="submit"
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm shadow-md transition-all shrink-0"
+                      className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
                     >
                       <span>Search</span>
-                      <Search className="w-4 h-4" />
+                      <Search className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
-              </form>
-
-              {/* Action Buttons & Social Proof */}
-              <div className="flex flex-wrap items-center gap-4 pt-2">
-                <button
-                  onClick={handleFindMyHome}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm shadow-sm transition-all cursor-pointer"
-                >
-                  <span>Find My Home</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-
-                <button
-                  onClick={() => navigate('/owner/add-property')}
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm border border-slate-200 shadow-xs transition-all cursor-pointer"
-                >
-                  <span>List My Property</span>
-                </button>
-
-                {/* Social Proof Pill */}
-                <div className="flex items-center gap-3 pl-2 sm:border-l sm:border-slate-200">
-                  <div className="flex -space-x-2">
-                    <img className="w-8 h-8 rounded-full border-2 border-white object-cover" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" alt="Buyer" />
-                    <img className="w-8 h-8 rounded-full border-2 border-white object-cover" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80" alt="Buyer" />
-                    <img className="w-8 h-8 rounded-full border-2 border-white object-cover" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=120&q=80" alt="Buyer" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-extrabold text-slate-900 block leading-tight">5,000+</span>
-                    <span className="text-[11px] text-slate-500 font-medium block leading-tight">Happy Families</span>
-                  </div>
-                </div>
               </div>
+            </form>
+
+            {/* Action Buttons: Find My Home & List My Property Side-by-Side */}
+            <div className="grid grid-cols-2 gap-3 max-w-xl pt-1">
+              <button
+                type="button"
+                onClick={handleFindMyHome}
+                className="w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white font-bold text-xs sm:text-sm shadow-md shadow-orange-600/20 transition-all cursor-pointer"
+              >
+                <span>Find My Home</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/owner/add-property')}
+                className="w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-white hover:bg-slate-50 text-slate-900 font-bold text-xs sm:text-sm border border-slate-200/90 shadow-sm transition-all cursor-pointer"
+              >
+                <span>List My Property</span>
+              </button>
             </div>
 
-            {/* Right Column: Hero Residential Imagery with Floating Badge */}
-            <div className="lg:col-span-5 relative">
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-white bg-slate-100 aspect-[4/3] lg:aspect-[5/4]">
-                <img
-                  src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80"
-                  alt="Modern Home"
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-
-                {/* Floating "A better way to home" badge */}
-                <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-full shadow-md border border-slate-100 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-orange-600" />
-                  <span className="text-xs font-bold text-slate-900">A better way to home.</span>
+            {/* Feature Pills Trio (Matching Reference Screen 1) */}
+            <div className="pt-2 max-w-xl">
+              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-2.5 border border-white/80 shadow-md grid grid-cols-3 gap-2 text-center">
+                <div className="flex items-center justify-center gap-2 py-1 px-1.5">
+                  <div className="w-7 h-7 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+                    <Home className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <span className="text-[11px] font-extrabold text-slate-900 block leading-tight">AI-Powered</span>
+                    <span className="text-[10px] text-slate-500 font-medium block leading-tight">Matches</span>
+                  </div>
                 </div>
 
-                {/* Bottom Overlay Info */}
-                <div className="absolute bottom-4 left-4 right-4 text-white text-left">
-                  <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-600 text-white text-[11px] font-bold mb-1">
-                    95% Lifestyle Match
+                <div className="flex items-center justify-center gap-2 py-1 px-1.5 border-x border-slate-200/80">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                    <MapPin className="w-4 h-4" />
                   </div>
-                  <h3 className="text-base font-bold leading-snug">3 BHK Luxury Residence, Race Course</h3>
-                  <p className="text-xs text-slate-200">Coimbatore • ₹1.35 Crores • Siruvani Water • 100% Vastu</p>
+                  <div className="text-left">
+                    <span className="text-[11px] font-extrabold text-slate-900 block leading-tight">Lifestyle</span>
+                    <span className="text-[10px] text-slate-500 font-medium block leading-tight">First</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center gap-2 py-1 px-1.5">
+                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                    <Users className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <span className="text-[11px] font-extrabold text-slate-900 block leading-tight">Real People</span>
+                    <span className="text-[10px] text-slate-500 font-medium block leading-tight">Real Homes</span>
+                  </div>
                 </div>
               </div>
             </div>

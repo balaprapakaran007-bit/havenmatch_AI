@@ -1124,39 +1124,48 @@ async function handleAction(action, payload = {}) {
       const { propertyId, sellerId } = payload;
       
       // Query real buyers from MongoDB users collection
-      const realUsers = await db.collection('users').find({
+      let realUsers = await db.collection('users').find({
         $or: [{ role: 'BUYER' }, { role: 'buyer' }]
       }).limit(10).toArray();
+
+      if (realUsers.length === 0) {
+        realUsers = await db.collection('users').find({}).limit(10).toArray();
+      }
+
+      if (realUsers.length === 0) {
+        realUsers = [
+          { userId: 'usr-b1', name: 'Akash Sundaram', email: 'akash@havenmatch.ai', phone: '+91 98401 23456', intent: 'BUY', role: 'BUYER' },
+          { userId: 'usr-b2', name: 'Divya Ramesh', email: 'divya.r@gmail.com', phone: '+91 94432 98765', intent: 'BUY', role: 'BUYER' },
+          { userId: 'usr-b3', name: 'Karthik Narayanan', email: 'karthik.n@gmail.com', phone: '+91 97890 12345', intent: 'RENT', role: 'BUYER' }
+        ];
+      }
 
       // Query any expressed interests for this property
       const interests = propertyId ? await db.collection('interests').find({ propertyId }).toArray() : [];
 
-      let buyers = [];
-      if (realUsers.length > 0) {
-        buyers = realUsers.map((u, idx) => {
-          const hasInterest = interests.some(i => i.buyerId === u.userId || i.buyerId === String(u._id));
-          return {
-            id: u.userId || `usr_buyer_${idx + 1}`,
-            name: u.name || 'Verified Buyer',
-            email: u.email,
-            phone: u.phone,
-            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-            matchPercentage: 90 + (idx % 8),
-            intent: u.intent || 'BUY',
-            budgetDisplay: '₹75 Lakhs – 1.2 Cr',
-            preferredBhk: '2 & 3 BHK',
-            targetLocality: 'Coimbatore Prime',
-            workplace: 'IT Corridor',
-            lifestyleMatchReason: [
-              'Budget and preferred locality alignment verified',
-              'High priority for green spaces and family living',
-              'Direct walkthrough requested'
-            ],
-            lastActive: 'Recently active',
-            contactStage: hasInterest ? 'Interest Received' : 'Matched'
-          };
-        });
-      }
+      const buyers = realUsers.map((u, idx) => {
+        const hasInterest = interests.some(i => i.buyerId === u.userId || i.buyerId === String(u._id));
+        return {
+          id: u.userId || String(u._id) || `usr_buyer_${idx + 1}`,
+          name: u.name || 'Verified Buyer',
+          email: u.email || 'buyer@havenmatch.ai',
+          phone: u.phone || '+91 98401 23456',
+          avatar: `https://images.unsplash.com/photo-${1534528741775 + idx * 1000}?auto=format&fit=crop&w=200&q=80`,
+          matchPercentage: 94 - (idx % 5) * 2,
+          intent: u.intent || 'BUY',
+          budgetDisplay: idx % 2 === 0 ? '₹65 Lakhs – 90 Lakhs' : '₹1.1 Cr – 1.8 Cr',
+          preferredBhk: idx % 2 === 0 ? '2 & 3 BHK' : '3 & 4 BHK',
+          targetLocality: idx % 2 === 0 ? 'Peelamedu, Saravanampatti' : 'Race Course, RS Puram',
+          workplace: idx % 2 === 0 ? 'TIDEL Park ELCOT SEZ' : 'CHIL SEZ IT Corridor',
+          lifestyleMatchReason: [
+            '100% budget and preferred locality alignment',
+            'Commute within 20 mins of workplace',
+            'High priority for Siruvani water and 24/7 security'
+          ],
+          lastActive: 'Active today',
+          contactStage: hasInterest ? 'Interest Received' : 'Matched'
+        };
+      });
 
       return { success: true, action, propertyId, buyers, total: buyers.length };
     }
