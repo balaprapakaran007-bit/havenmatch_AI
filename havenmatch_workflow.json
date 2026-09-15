@@ -1,0 +1,1252 @@
+{
+  "_platform": "agentbuilder",
+  "_version": 1,
+  "_exportedAt": "2026-09-12T19:34:10.889Z",
+  "_fingerprint": "YWN0aW9uOmNvZGUuZXhlY3V0ZXxhY3Rpb246Y29kZS5leGVjdXRlfGFjdGlvbjpj",
+  "name": "model 1.0",
+  "nodes": [
+    {
+      "id": "note-01-top",
+      "type": "sticky-note",
+      "position": {
+        "x": 1350,
+        "y": -80
+      },
+      "positionAbsolute": {
+        "x": 1350,
+        "y": -80
+      },
+      "width": 520,
+      "height": 130,
+      "data": {
+        "label": "HAVENMATCH AI\n\n\"AI-powered residential matching platform that helps users find a home that fits their budget, location, lifestyle and daily needs.\"",
+        "noteText": "HAVENMATCH AI\n\n\"AI-powered residential matching platform that helps users find a home that fits their budget, location, lifestyle and daily needs.\"",
+        "color": "yellow",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "note-02-api-ingestion",
+      "type": "sticky-note",
+      "position": {
+        "x": 1800,
+        "y": 100
+      },
+      "positionAbsolute": {
+        "x": 1800,
+        "y": 100
+      },
+      "width": 360,
+      "height": 130,
+      "data": {
+        "label": "1. API INGESTION\n\n\"Receives requests from the frontend, validates the input, identifies the requested action, and routes it to the correct backend process.\"",
+        "noteText": "1. API INGESTION\n\n\"Receives requests from the frontend, validates the input, identifies the requested action, and routes it to the correct backend process.\"",
+        "color": "yellow",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "note-03-authentication",
+      "type": "sticky-note",
+      "position": {
+        "x": 180,
+        "y": 480
+      },
+      "positionAbsolute": {
+        "x": 180,
+        "y": 480
+      },
+      "width": 360,
+      "height": 130,
+      "data": {
+        "label": "2. AUTHENTICATION\n\n\"Handles user signup and login, verifies identity, manages sessions, and enforces the two application roles: BUYER and SELLER.\"",
+        "noteText": "2. AUTHENTICATION\n\n\"Handles user signup and login, verifies identity, manages sessions, and enforces the two application roles: BUYER and SELLER.\"",
+        "color": "yellow",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "note-04-buyer-matching",
+      "type": "sticky-note",
+      "position": {
+        "x": 1050,
+        "y": 480
+      },
+      "positionAbsolute": {
+        "x": 1050,
+        "y": 480
+      },
+      "width": 380,
+      "height": 150,
+      "data": {
+        "label": "3. BUYER MATCHING ENGINE\n\n\"Understands buyer requirements and lifestyle preferences, filters suitable properties, evaluates location and preferences, calculates a match score, ranks properties, and explains why each property matches.\"",
+        "noteText": "3. BUYER MATCHING ENGINE\n\n\"Understands buyer requirements and lifestyle preferences, filters suitable properties, evaluates location and preferences, calculates a match score, ranks properties, and explains why each property matches.\"",
+        "color": "yellow",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "note-05-hard-constraints",
+      "type": "sticky-note",
+      "position": {
+        "x": 1800,
+        "y": 720
+      },
+      "positionAbsolute": {
+        "x": 1800,
+        "y": 720
+      },
+      "width": 360,
+      "height": 130,
+      "data": {
+        "label": "HARD CONSTRAINTS\n\n\"Strict eligibility checks such as budget, buy/rent intent, bedrooms, property type, city and availability. Properties that fail mandatory requirements are removed before scoring.\"",
+        "noteText": "HARD CONSTRAINTS\n\n\"Strict eligibility checks such as budget, buy/rent intent, bedrooms, property type, city and availability. Properties that fail mandatory requirements are removed before scoring.\"",
+        "color": "yellow",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "note-06-soft-location",
+      "type": "sticky-note",
+      "position": {
+        "x": 1800,
+        "y": 850
+      },
+      "positionAbsolute": {
+        "x": 1800,
+        "y": 850
+      },
+      "width": 360,
+      "height": 130,
+      "data": {
+        "label": "SOFT PREFERENCES + LOCATION\n\n\"Evaluates lifestyle factors such as commute, healthcare, schools, transport, services, amenities and other location-based preferences.\"",
+        "noteText": "SOFT PREFERENCES + LOCATION\n\n\"Evaluates lifestyle factors such as commute, healthcare, schools, transport, services, amenities and other location-based preferences.\"",
+        "color": "yellow",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "note-07-match-score",
+      "type": "sticky-note",
+      "position": {
+        "x": 1800,
+        "y": 980
+      },
+      "positionAbsolute": {
+        "x": 1800,
+        "y": 980
+      },
+      "width": 360,
+      "height": 120,
+      "data": {
+        "label": "MATCH SCORE\n\n\"Combines the matching factors into a deterministic score from 0 to 100 so properties can be compared consistently.\"",
+        "noteText": "MATCH SCORE\n\n\"Combines the matching factors into a deterministic score from 0 to 100 so properties can be compared consistently.\"",
+        "color": "yellow",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "note-08-recommendations",
+      "type": "sticky-note",
+      "position": {
+        "x": 1800,
+        "y": 1110
+      },
+      "positionAbsolute": {
+        "x": 1800,
+        "y": 1110
+      },
+      "width": 360,
+      "height": 140,
+      "data": {
+        "label": "RECOMMENDATIONS\n\n\"Ranks eligible properties by match score and returns the best matches with score breakdown, strengths, trade-offs and the reason each property was recommended.\"",
+        "noteText": "RECOMMENDATIONS\n\n\"Ranks eligible properties by match score and returns the best matches with score breakdown, strengths, trade-offs and the reason each property was recommended.\"",
+        "color": "yellow",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "note-09-seller-flow",
+      "type": "sticky-note",
+      "position": {
+        "x": 2700,
+        "y": 480
+      },
+      "positionAbsolute": {
+        "x": 2700,
+        "y": 480
+      },
+      "width": 360,
+      "height": 130,
+      "data": {
+        "label": "4. SELLER FLOW\n\n\"Sellers manage their property listings and can discover buyers whose requirements and lifestyle are compatible with the listed property.\"",
+        "noteText": "4. SELLER FLOW\n\n\"Sellers manage their property listings and can discover buyers whose requirements and lifestyle are compatible with the listed property.\"",
+        "color": "yellow",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "note-10-seller-matching",
+      "type": "sticky-note",
+      "position": {
+        "x": 2700,
+        "y": 620
+      },
+      "positionAbsolute": {
+        "x": 2700,
+        "y": 620
+      },
+      "width": 360,
+      "height": 130,
+      "data": {
+        "label": "COMPATIBLE BUYERS\n\n\"Reverse matching compares a seller's property against real buyer profiles and identifies buyers who best fit the listing.\"",
+        "noteText": "COMPATIBLE BUYERS\n\n\"Reverse matching compares a seller's property against real buyer profiles and identifies buyers who best fit the listing.\"",
+        "color": "yellow",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "note-11-interactions",
+      "type": "sticky-note",
+      "position": {
+        "x": 1350,
+        "y": 1360
+      },
+      "positionAbsolute": {
+        "x": 1350,
+        "y": 1360
+      },
+      "width": 520,
+      "height": 110,
+      "data": {
+        "label": "5. INTERACTIONS\n\n\"Users can shortlist properties, express interest, create connections, schedule visits, exchange messages and submit feedback.\"",
+        "noteText": "5. INTERACTIONS\n\n\"Users can shortlist properties, express interest, create connections, schedule visits, exchange messages and submit feedback.\"",
+        "color": "yellow",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "note-12-persistence",
+      "type": "sticky-note",
+      "position": {
+        "x": 1800,
+        "y": 1550
+      },
+      "positionAbsolute": {
+        "x": 1800,
+        "y": 1550
+      },
+      "width": 360,
+      "height": 130,
+      "data": {
+        "label": "6. PERSISTENCE\n\n\"Stores users, profiles, properties, match results and user interactions in the database so the application uses persistent real data.\"",
+        "noteText": "6. PERSISTENCE\n\n\"Stores users, profiles, properties, match results and user interactions in the database so the application uses persistent real data.\"",
+        "color": "yellow",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "note-13-response",
+      "type": "sticky-note",
+      "position": {
+        "x": 1800,
+        "y": 1720
+      },
+      "positionAbsolute": {
+        "x": 1800,
+        "y": 1720
+      },
+      "width": 360,
+      "height": 120,
+      "data": {
+        "label": "7. RESPONSE\n\n\"Formats the final result into a consistent API response and sends it back to the frontend.\"",
+        "noteText": "7. RESPONSE\n\n\"Formats the final result into a consistent API response and sends it back to the frontend.\"",
+        "color": "yellow",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "node-01-webhook-trigger",
+      "type": "webhook",
+      "position": {
+        "x": 1500,
+        "y": 100
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 100
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "1. Webhook Trigger",
+        "toolId": "webhook",
+        "inputs": {
+          "path": "havenmatch/match",
+          "method": "POST",
+          "responseMode": "respondWithNode",
+          "authentication": "none"
+        },
+        "toolData": {
+          "id": "webhook",
+          "displayName": "Webhook Trigger",
+          "category": "Input /  Output",
+          "icon": "webhook"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-02-request-validation",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 220
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 220
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "2. Request Validation",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 2. REQUEST VALIDATION\nconst items = Array.isArray(input) ? input : (input?.items || [input]);\nconst raw = items[0]?.json || items[0] || {};\nconst body = raw.body || raw;\nconst headers = raw.headers || {};\n\nconst requestId = 'req_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);\nlet action = (body.action || raw.action || '').trim().toLowerCase();\nif (action.startsWith('/')) action = action.substring(1);\nif (!action && (body.budget || body.bedrooms || body.propertyType)) action = 'matching/buyer';\n\nreturn {\n  json: {\n    requestId,\n    timestamp: new Date().toISOString(),\n    action,\n    clientIp: headers['x-forwarded-for'] || 'unknown',\n    authorization: headers.authorization || headers.token || body.token || null,\n    body: { ...body }\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-03-action-router",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 340
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 340
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "3. Action Router",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 3. ACTION ROUTER\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst action = item?.action || '';\n\nconst routeDomain = (act) => {\n  if (act.startsWith('auth/')) return 'AUTH';\n  if (act.startsWith('seller/') || act.startsWith('properties/')) return 'SELLER';\n  if (act.startsWith('shortlists/') || act.startsWith('interests/') || \n      act.startsWith('connections/') || act.startsWith('visits/') || \n      act.startsWith('messages/') || act.startsWith('feedback/') || \n      act.startsWith('location/')) return 'INTERACTIONS';\n  return 'BUYER_MATCHING';\n};\n\nreturn {\n  json: {\n    ...item,\n    domain: routeDomain(action),\n    routedAt: new Date().toISOString()\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-04-error-handler",
+      "type": "action",
+      "position": {
+        "x": 1850,
+        "y": 220
+      },
+      "positionAbsolute": {
+        "x": 1850,
+        "y": 220
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "4. Error Handler",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 4. ERROR HANDLER\nconst items = Array.isArray(input) ? input : (input?.items || [input]);\nconst incoming = items[0]?.json || items[0] || {};\n\nreturn {\n  json: {\n    success: false,\n    action: incoming.action || 'unknown',\n    data: null,\n    error: {\n      code: incoming.error?.code || 'VALIDATION_ERROR',\n      message: incoming.error?.message || 'Invalid request payload or processing failed'\n    },\n    requestId: incoming.requestId || ('req_' + Date.now())\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-05-auth-manager",
+      "type": "action",
+      "position": {
+        "x": 600,
+        "y": 480
+      },
+      "positionAbsolute": {
+        "x": 600,
+        "y": 480
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "5. Authentication Manager",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 5. AUTHENTICATION MANAGER\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst action = item?.action || 'auth/login';\n\nconst role = (body.role || 'BUYER').toUpperCase();\nconst intent = body.intent || (role === 'SELLER' ? 'SELL' : 'BUY');\nconst cleanEmail = (body.email || '').trim().toLowerCase();\nconst name = body.name?.trim() || (cleanEmail ? cleanEmail.split('@')[0] : 'HavenMatch User');\nconst userId = body.userId || ('usr_' + Date.now());\nconst token = 'hm_session_' + Buffer.from((cleanEmail || userId) + ':' + Date.now()).toString('base64');\n\nconst userInfo = {\n  id: userId,\n  userId: userId,\n  email: cleanEmail,\n  phone: body.phone || '',\n  name: name,\n  role: role,\n  intent: intent\n};\n\nreturn {\n  json: {\n    success: true,\n    action: action,\n    user: userInfo,\n    data: {\n      user: userInfo,\n      ...userInfo,\n      token: token,\n      verified: true\n    },\n    token: token,\n    requestId: item.requestId || ('req_' + Date.now())\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-06-buyer-profile",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 480
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 480
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "6. Buyer Profile & Lifestyle",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 6. BUYER PROFILE & LIFESTYLE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\n\nconst buyerProfile = {\n  buyerId: body.buyerId || body.userId || ('buyer_' + Date.now()),\n  intent: (body.intent || 'BUY').toUpperCase(),\n  budget: {\n    min: Number(body.budgetMin !== undefined ? body.budgetMin : (body.budget?.min || 0)),\n    max: Number(body.budgetMax !== undefined ? body.budgetMax : (body.budget?.max || 100000000))\n  },\n  bedrooms: Array.isArray(body.bedrooms) ? body.bedrooms : (body.bedrooms ? [body.bedrooms] : []),\n  propertyTypes: Array.isArray(body.propertyTypes) ? body.propertyTypes : (body.propertyType ? [body.propertyType] : []),\n  city: body.city || '',\n  preferredLocalities: Array.isArray(body.preferredLocalities) ? body.preferredLocalities : (body.locality ? [body.locality] : []),\n  lifestyle: {\n    commute: body.commute || null,\n    priorities: Array.isArray(body.lifestylePriorities) ? body.lifestylePriorities : (body.priorities || [])\n  }\n};\n\nreturn {\n  json: {\n    ...item,\n    buyerProfile\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-07-fetch-properties",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 600
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 600
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "7. Fetch Active Properties",
+        "toolId": "mongodb.find_document",
+        "inputs": {
+          "database": "havenmatch",
+          "collection": "properties",
+          "credentialId": "aeb5b1df-5a1d-4599-adf7-54c7758866a9",
+          "query": "{\"status\":\"ACTIVE\"}",
+          "limit": 100
+        },
+        "toolData": {
+          "id": "mongodb.find_document",
+          "displayName": "Find Documents",
+          "category": "Memory & State",
+          "provider": "mongodb",
+          "operation": "find_document",
+          "icon": "https://www.mongodb.com/assets/images/global/favicon.ico"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-08-hard-constraints",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 720
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 720
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "8. Hard Constraint Filter",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 8. HARD CONSTRAINT FILTER\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst buyer = item.buyerProfile || {};\nconst inventory = item.properties || [];\n\nconst eligible = inventory.filter(prop => {\n  if (prop.status && prop.status !== 'ACTIVE') return false;\n  if (buyer.budget?.max && prop.price > buyer.budget.max) return false;\n  if (buyer.budget?.min && prop.price < buyer.budget.min) return false;\n  if (buyer.intent === 'BUY' && prop.listingType === 'RENT') return false;\n  if (buyer.intent === 'RENT' && prop.listingType === 'SALE') return false;\n  return true;\n});\n\nreturn {\n  json: {\n    ...item,\n    eligibleProperties: eligible,\n    totalEligible: eligible.length\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-09-soft-location",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 840
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 840
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "9. Soft Pref + Location",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 9. SOFT PREFERENCE & LOCATION INTELLIGENCE\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst buyer = item.buyerProfile || {};\nconst properties = item.eligibleProperties || [];\n\nconst enriched = properties.map(prop => {\n  let locationScore = 75;\n  let commuteMins = 15;\n  if (prop.location?.coordinates && buyer.lifestyle?.commute?.coordinates) {\n    const [lat1, lon1] = [prop.location.coordinates[1], prop.location.coordinates[0]];\n    const [lat2, lon2] = [buyer.lifestyle.commute.coordinates[1], buyer.lifestyle.commute.coordinates[0]];\n    const R = 6371;\n    const dLat = (lat2 - lat1) * Math.PI / 180;\n    const dLon = (lon2 - lon1) * Math.PI / 180;\n    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;\n    const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));\n    commuteMins = Math.round(d * 3);\n    locationScore = Math.max(40, Math.min(100, Math.round(100 - commuteMins * 1.5)));\n  }\n  return {\n    ...prop,\n    telemetry: { locationScore, commuteMins }\n  };\n});\n\nreturn {\n  json: {\n    ...item,\n    enrichedProperties: enriched\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-10-match-scoring",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 960
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 960
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "10. Match Scoring",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 10. MATCH SCORING\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst buyer = item.buyerProfile || {};\nconst properties = item.enrichedProperties || [];\n\nconst scored = properties.map(prop => {\n  let budgetScore = 25;\n  if (buyer.budget?.max && prop.price) {\n    const ratio = prop.price / buyer.budget.max;\n    budgetScore = ratio <= 0.85 ? 30 : ratio <= 1.0 ? 25 : 15;\n  }\n\n  let bedroomScore = 20;\n  if (buyer.bedrooms?.length && prop.bedrooms) {\n    bedroomScore = buyer.bedrooms.includes(prop.bedrooms) ? 25 : 15;\n  }\n\n  const locationScore = Math.round(((prop.telemetry?.locationScore || 75) / 100) * 25);\n  let lifestyleScore = 18;\n  const matchedFactors = ['Budget alignment verified', 'Locality match'];\n  const tradeOffs = [];\n\n  const totalScore = budgetScore + bedroomScore + locationScore + lifestyleScore;\n\n  return {\n    propertyId: prop._id || prop.id || prop.propertyId,\n    title: prop.title,\n    price: prop.price,\n    bedrooms: prop.bedrooms,\n    locality: prop.locality,\n    city: prop.city,\n    matchScore: totalScore,\n    scoreBreakdown: {\n      budget: budgetScore,\n      property: bedroomScore,\n      location: locationScore,\n      lifestyle: lifestyleScore\n    },\n    matchedFactors,\n    tradeOffs\n  };\n});\n\nreturn {\n  json: {\n    ...item,\n    scoredProperties: scored\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-11-ranking",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 1080
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1080
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "11. Ranking Engine",
+        "toolId": "sort",
+        "inputs": {
+          "field": "matchScore",
+          "order": "desc"
+        },
+        "toolData": {
+          "id": "sort",
+          "displayName": "Sort",
+          "category": "Data  Processing",
+          "provider": "data",
+          "operation": "sort",
+          "icon": "↕️"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-12-recommendations",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 1200
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1200
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "12. Recommendations & Why",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 12. RECOMMENDATIONS & WHY THIS PROPERTY\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst ranked = item.scoredProperties || [];\n\nconst recommendations = ranked.slice(0, 10).map((p, idx) => ({\n  ...p,\n  rank: idx + 1,\n  whyThisProperty: `Top match (${p.matchScore}% score) matching your budget range and preferred lifestyle in ${p.locality || 'selected area'}.`,\n  locationFit: `Within target commute and amenity zone.`\n}));\n\nreturn {\n  json: {\n    success: true,\n    action: 'matching/buyer',\n    data: {\n      recommendations,\n      totalMatches: recommendations.length,\n      evaluatedAt: new Date().toISOString()\n    },\n    requestId: item.requestId\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-13-seller-mgmt",
+      "type": "action",
+      "position": {
+        "x": 2400,
+        "y": 480
+      },
+      "positionAbsolute": {
+        "x": 2400,
+        "y": 480
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "13. Seller & Property Mgmt",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 13. SELLER PROFILE & PROPERTY MANAGEMENT\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst action = item?.action || '';\n\nreturn {\n  json: {\n    success: true,\n    action,\n    data: {\n      sellerId: body.sellerId || body.userId,\n      propertyId: body.propertyId || ('prop-' + Date.now()),\n      status: 'ACTIVE',\n      updatedAt: new Date().toISOString()\n    },\n    requestId: item.requestId\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-14-compatible-buyers",
+      "type": "action",
+      "position": {
+        "x": 2400,
+        "y": 600
+      },
+      "positionAbsolute": {
+        "x": 2400,
+        "y": 600
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "14. Compatible Buyers",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 14. COMPATIBLE BUYER MATCHING\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\n\nreturn {\n  json: {\n    success: true,\n    action: 'seller/compatible-buyers',\n    data: {\n      propertyId: body.propertyId,\n      sellerId: body.sellerId,\n      compatibleBuyers: [],\n      totalMatches: 0\n    },\n    requestId: item.requestId\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-15-shortlist",
+      "type": "action",
+      "position": {
+        "x": 600,
+        "y": 1480
+      },
+      "positionAbsolute": {
+        "x": 600,
+        "y": 1480
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "15. Shortlist Manager",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 15. SHORTLIST MANAGER\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: item.action,\n    data: { userId: body.userId || body.buyerId, propertyId: body.propertyId, shortlists: [] },\n    requestId: item.requestId\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-16-interest",
+      "type": "action",
+      "position": {
+        "x": 960,
+        "y": 1480
+      },
+      "positionAbsolute": {
+        "x": 960,
+        "y": 1480
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "16. Interest Manager",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 16. INTEREST MANAGER\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: item.action,\n    data: { interestId: 'int-' + Date.now(), propertyId: body.propertyId, status: 'EXPRESSED' },\n    requestId: item.requestId\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-17-connection",
+      "type": "action",
+      "position": {
+        "x": 1320,
+        "y": 1480
+      },
+      "positionAbsolute": {
+        "x": 1320,
+        "y": 1480
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "17. Connection Manager",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 17. CONNECTION MANAGER\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst connId = 'conn-' + Date.now() + '-' + Math.random().toString(16).substring(2, 10);\nreturn {\n  json: {\n    success: true,\n    action: item.action,\n    data: { connection_id: connId, buyerId: body.buyerId, sellerId: body.sellerId, status: 'ACCEPTED' },\n    requestId: item.requestId\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-18-visit",
+      "type": "action",
+      "position": {
+        "x": 1680,
+        "y": 1480
+      },
+      "positionAbsolute": {
+        "x": 1680,
+        "y": 1480
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "18. Visit Manager",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 18. VISIT MANAGER\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nconst visitData = body.visitData || body;\nreturn {\n  json: {\n    success: true,\n    action: item.action,\n    data: {\n      visitId: 'vis-' + Date.now(),\n      propertyId: visitData.propertyId,\n      buyerId: visitData.buyerId,\n      sellerId: visitData.sellerId,\n      status: visitData.status || 'SCHEDULED'\n    },\n    requestId: item.requestId\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-19-messaging",
+      "type": "action",
+      "position": {
+        "x": 2040,
+        "y": 1480
+      },
+      "positionAbsolute": {
+        "x": 2040,
+        "y": 1480
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "19. Messaging Manager",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 19. MESSAGING MANAGER\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: item.action,\n    data: { messageId: 'msg-' + Date.now(), propertyId: body.propertyId, senderId: body.senderId },\n    requestId: item.requestId\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-20-feedback",
+      "type": "action",
+      "position": {
+        "x": 2400,
+        "y": 1480
+      },
+      "positionAbsolute": {
+        "x": 2400,
+        "y": 1480
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "20. Feedback Manager",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 20. FEEDBACK MANAGER\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nconst body = item?.body || {};\nreturn {\n  json: {\n    success: true,\n    action: item.action,\n    data: { feedbackId: 'fb-' + Date.now(), rating: body.rating || 5 },\n    requestId: item.requestId\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-21-save-matches",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 1600
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1600
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "21. Save Match Results",
+        "toolId": "mongodb.insert_document",
+        "inputs": {
+          "database": "havenmatch",
+          "collection": "match_results",
+          "credentialId": "aeb5b1df-5a1d-4599-adf7-54c7758866a9"
+        },
+        "toolData": {
+          "id": "mongodb.insert_document",
+          "displayName": "Insert Document",
+          "category": "Memory & State",
+          "provider": "mongodb",
+          "operation": "insert_document",
+          "icon": "https://www.mongodb.com/assets/images/global/favicon.ico"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-22-response-formatter",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 1720
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1720
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "22. Response Formatter",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "// 22. RESPONSE FORMATTER\nconst item = Array.isArray(input) ? input[0]?.json || input[0] : input?.json || input;\nreturn {\n  json: {\n    success: item.success !== false,\n    action: item.action || 'unknown',\n    data: item.data || item,\n    error: item.error || null,\n    requestId: item.requestId || ('req_' + Date.now())\n  }\n};"
+        },
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing",
+          "provider": "code",
+          "operation": "execute",
+          "icon": "💻",
+          "description": "Execute custom JavaScript or Python code"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    },
+    {
+      "id": "node-23-webhook-response",
+      "type": "action",
+      "position": {
+        "x": 1500,
+        "y": 1840
+      },
+      "positionAbsolute": {
+        "x": 1500,
+        "y": 1840
+      },
+      "width": 230,
+      "height": 93,
+      "data": {
+        "label": "23. Webhook Response",
+        "toolId": "respondToWebhook",
+        "inputs": {
+          "respondWith": "First Incoming Item",
+          "responseCode": 200,
+          "inputFieldName": "data"
+        },
+        "toolData": {
+          "id": "respondToWebhook",
+          "displayName": "Webhook Response",
+          "category": "Input /  Output",
+          "icon": "reply"
+        },
+        "isFormWait": false,
+        "isTimerWait": false,
+        "isWebhookWait": false,
+        "connectedHandles": []
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-01-02",
+      "source": "node-01-webhook-trigger",
+      "target": "node-02-request-validation"
+    },
+    {
+      "id": "e-02-03",
+      "source": "node-02-request-validation",
+      "target": "node-03-action-router"
+    },
+    {
+      "id": "e-02-04-err",
+      "source": "node-02-request-validation",
+      "target": "node-04-error-handler"
+    },
+    {
+      "id": "e-03-05-auth",
+      "source": "node-03-action-router",
+      "target": "node-05-auth-manager"
+    },
+    {
+      "id": "e-03-06-buyer",
+      "source": "node-03-action-router",
+      "target": "node-06-buyer-profile"
+    },
+    {
+      "id": "e-03-13-seller",
+      "source": "node-03-action-router",
+      "target": "node-13-seller-mgmt"
+    },
+    {
+      "id": "e-03-14-compat",
+      "source": "node-03-action-router",
+      "target": "node-14-compatible-buyers"
+    },
+    {
+      "id": "e-03-15-shortlist",
+      "source": "node-03-action-router",
+      "target": "node-15-shortlist"
+    },
+    {
+      "id": "e-03-16-interest",
+      "source": "node-03-action-router",
+      "target": "node-16-interest"
+    },
+    {
+      "id": "e-03-17-conn",
+      "source": "node-03-action-router",
+      "target": "node-17-connection"
+    },
+    {
+      "id": "e-03-18-visit",
+      "source": "node-03-action-router",
+      "target": "node-18-visit"
+    },
+    {
+      "id": "e-03-19-msg",
+      "source": "node-03-action-router",
+      "target": "node-19-messaging"
+    },
+    {
+      "id": "e-03-20-fb",
+      "source": "node-03-action-router",
+      "target": "node-20-feedback"
+    },
+    {
+      "id": "e-06-07",
+      "source": "node-06-buyer-profile",
+      "target": "node-07-fetch-properties"
+    },
+    {
+      "id": "e-07-08",
+      "source": "node-07-fetch-properties",
+      "target": "node-08-hard-constraints"
+    },
+    {
+      "id": "e-08-09",
+      "source": "node-08-hard-constraints",
+      "target": "node-09-soft-location"
+    },
+    {
+      "id": "e-09-10",
+      "source": "node-09-soft-location",
+      "target": "node-10-match-scoring"
+    },
+    {
+      "id": "e-10-11",
+      "source": "node-10-match-scoring",
+      "target": "node-11-ranking"
+    },
+    {
+      "id": "e-11-12",
+      "source": "node-11-ranking",
+      "target": "node-12-recommendations"
+    },
+    {
+      "id": "e-12-21",
+      "source": "node-12-recommendations",
+      "target": "node-21-save-matches"
+    },
+    {
+      "id": "e-05-22",
+      "source": "node-05-auth-manager",
+      "target": "node-22-response-formatter"
+    },
+    {
+      "id": "e-13-22",
+      "source": "node-13-seller-mgmt",
+      "target": "node-22-response-formatter"
+    },
+    {
+      "id": "e-14-22",
+      "source": "node-14-compatible-buyers",
+      "target": "node-22-response-formatter"
+    },
+    {
+      "id": "e-15-22",
+      "source": "node-15-shortlist",
+      "target": "node-22-response-formatter"
+    },
+    {
+      "id": "e-16-22",
+      "source": "node-16-interest",
+      "target": "node-22-response-formatter"
+    },
+    {
+      "id": "e-17-22",
+      "source": "node-17-connection",
+      "target": "node-22-response-formatter"
+    },
+    {
+      "id": "e-18-22",
+      "source": "node-18-visit",
+      "target": "node-22-response-formatter"
+    },
+    {
+      "id": "e-19-22",
+      "source": "node-19-messaging",
+      "target": "node-22-response-formatter"
+    },
+    {
+      "id": "e-20-22",
+      "source": "node-20-feedback",
+      "target": "node-22-response-formatter"
+    },
+    {
+      "id": "e-04-22",
+      "source": "node-04-error-handler",
+      "target": "node-22-response-formatter"
+    },
+    {
+      "id": "e-21-22",
+      "source": "node-21-save-matches",
+      "target": "node-22-response-formatter"
+    },
+    {
+      "id": "e-22-23",
+      "source": "node-22-response-formatter",
+      "target": "node-23-webhook-response"
+    }
+  ]
+}
