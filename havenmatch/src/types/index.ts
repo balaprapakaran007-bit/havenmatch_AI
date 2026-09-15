@@ -84,18 +84,30 @@ export interface Property {
   waterSupply: string;
   gatedCommunity: boolean;
   security24x7: boolean;
+  noiseLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
+  safety?: string;
+  waterAvailability?: string;
+  electricityAvailability?: string;
+  petFriendly?: boolean;
+  suitableFor?: string[];
+  rules?: string;
+  additionalDetails?: string;
+  nearbyPlaces?: NearbyPlace[];
   amenities: string[];
   images: string[];
   featured?: boolean;
   seller: {
     id: string;
     name: string;
-    role: 'Individual Owner' | 'Direct Builder' | 'Verified Host';
+    role: 'Individual Owner' | 'Direct Builder' | 'Verified Host' | 'Agent' | string;
     phone: string;
     email?: string;
     verified: boolean;
     responseRate: string;
     avatarUrl?: string;
+    location?: string;
+    bio?: string;
+    ownerType?: 'OWNER' | 'AGENT';
   };
 }
 
@@ -190,6 +202,10 @@ export interface UserSession {
   name: string;
   role: UserRole;
   isLoggedIn: boolean;
+  ownerType?: 'OWNER' | 'AGENT';
+  location?: string;
+  bio?: string;
+  avatarUrl?: string;
 }
 
 export interface Visit {

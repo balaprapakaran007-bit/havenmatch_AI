@@ -67,6 +67,16 @@ class InterestService {
   getMyInterests(): InterestRecord[] {
     return [...this.records];
   }
+
+  async getInterests(sellerId?: string): Promise<InterestRecord[]> {
+    try {
+      const data = await callAPI<{ success: boolean; interests: InterestRecord[] }>('interests/list', { sellerId });
+      if (data.interests) {
+        return data.interests;
+      }
+    } catch { /* ignore */ }
+    return this.getMyInterests();
+  }
 }
 
 export const interestService = new InterestService();

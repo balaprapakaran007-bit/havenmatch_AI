@@ -26,10 +26,10 @@ function saveToStorage(visits: Visit[]): void {
 class VisitService {
   private visits: Visit[] = loadFromStorage();
 
-  async getVisits(): Promise<Visit[]> {
+  async getVisits(userId?: string): Promise<Visit[]> {
     // Refresh from backend if available
     try {
-      const data = await callAPI<{ success: boolean; visits: Visit[] }>('visits/list');
+      const data = await callAPI<{ success: boolean; visits: Visit[] }>('visits/list', { userId, sellerId: userId });
       if (data.visits && data.visits.length > 0) {
         this.visits = data.visits;
         saveToStorage(this.visits);

@@ -50,6 +50,7 @@ interface AppContextType {
   setBgTheme: (theme: BackgroundTheme) => void;
   cycleBgTheme: () => void;
   userSession: UserSession | null;
+  updateProfile: (profileData: Partial<UserSession>) => Promise<UserSession>;
   login: (data: {
     email: string;
     phone?: string;
@@ -194,6 +195,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateProfile = async (profileData: Partial<UserSession>): Promise<UserSession> => {
+    const current = userSession || loadSession();
+    if (!current) throw new Error('No user session active.');
+
+    const targetUserId = current.id || current.userId;
+    const res = await callAPI<{ success: boolean; user: UserSession }>('auth/update-profile', {
+      userId: targetUserId,
+      email: current.email,
+      ...profileData
+    });
+
+    const updatedUser: UserSession = {
+      ...current,
+      ...(res?.user || {}),
+      ...profileData,
+      isLoggedIn: true
+    };
+
+    setUserSession(updatedUser);
+    saveSession(updatedUser);
+    return updatedUser;
+  };
+
   const logout = () => {
     setUserSession(null);
     saveSession(null);
@@ -260,6 +284,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setBgTheme,
         cycleBgTheme,
         userSession,
+        updateProfile,
         login,
         logout,
         selectedPropertyId,

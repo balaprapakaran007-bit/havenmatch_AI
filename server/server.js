@@ -309,7 +309,7 @@ function calculateLifestyleMatch(property, buyer) {
   const propLocality = (property.locality || '').toLowerCase();
 
   // 1. Budget Fit (out of 25)
-  let budgetScore = 23;
+  let budgetScore = 22;
   if (req.budgetMax && req.budgetMax > 0) {
     if (property.price <= req.budgetMax) {
       budgetScore = 25;
@@ -321,14 +321,17 @@ function calculateLifestyleMatch(property, buyer) {
   }
 
   // 2. Property Fit (out of 20)
-  let propScore = 18;
+  let propScore = 17;
   if (req.bhk && Array.isArray(req.bhk) && req.bhk.length > 0) {
     if (req.bhk.includes(property.bhk)) propScore += 2;
   }
   if (property.vastuCompliant && req.vastuRequired) propScore = Math.min(20, propScore + 1);
+  if (req.parkingRequired && property.parking && property.parking !== 'None') {
+    propScore = Math.min(20, propScore + 1);
+  }
 
   // 3. Location & Commute Fit (out of 30)
-  let locScore = 26;
+  let locScore = 25;
   if (req.city && propCity === req.city.toLowerCase()) locScore += 2;
   if (
     req.preferredLocalities &&
@@ -337,17 +340,37 @@ function calculateLifestyleMatch(property, buyer) {
       (l) => l && propLocality.includes(l.toLowerCase())
     )
   ) {
-    locScore += 2;
+    locScore += 3;
   }
   locScore = Math.min(30, locScore);
 
   // 4. Lifestyle & Amenity Fit (out of 25)
-  let lifeScore = 22;
-  if (priorities.healthcare === 'HIGH' && propLocality.includes('peelamedu')) lifeScore += 2;
+  let lifeScore = 20;
+  if (priorities.healthcare === 'HIGH') {
+    if (propLocality.includes('peelamedu') || (property.nearbyPlaces && property.nearbyPlaces.some(p => p.category === 'hospital' && p.distanceKm <= 3))) {
+      lifeScore += 2;
+    }
+  }
   if (priorities.commute === 'HIGH') lifeScore += 1;
+
+  // New signals: Noise Level
+  if (property.noiseLevel === 'LOW' && (priorities.quietness === 'HIGH' || life.atmospherePreference === 'Peaceful & Quiet')) {
+    lifeScore += 2;
+  }
+
+  // Pet friendly
+  if (life.hasPets && property.petFriendly) {
+    lifeScore += 1;
+  }
+
+  // Suitable for elderly / kids
+  if (life.hasElderlyFamily && (property.suitableFor?.includes('Senior Citizens') || property.suitableFor?.includes('Families') || property.floor <= 2 || property.amenities?.includes('Lift Access'))) {
+    lifeScore += 1;
+  }
+
   lifeScore = Math.min(25, lifeScore);
 
-  const totalScore = budgetScore + propScore + locScore + lifeScore;
+  const totalScore = Math.min(100, budgetScore + propScore + locScore + lifeScore);
 
   const whyReasons = [
     `Located in ${property.locality || 'prime area'}, within prime commute target`,
@@ -355,16 +378,27 @@ function calculateLifestyleMatch(property, buyer) {
     `${property.bhk || 2} BHK layout matching your space requirement with ${property.facing || 'East'} facing`
   ];
 
-  if (property.waterSupply && String(property.waterSupply).includes('Siruvani')) {
+  if (property.waterSupply && String(property.waterSupply).toLowerCase().includes('siruvani')) {
     whyReasons.push('Verified Siruvani drinking water connection');
   }
 
+  if (property.noiseLevel === 'LOW') {
+    whyReasons.push('Quiet residential zone with low ambient noise');
+  }
+
+  if (property.petFriendly) {
+    whyReasons.push('Pet-friendly community & building guidelines');
+  }
+
   const tradeOffs = [];
-  if (property.floor > 3 && Array.isArray(property.amenities) && !property.amenities.includes('Lift Access')) {
+  if (property.floor > 3 && Array.isArray(property.amenities) && !property.amenities.includes('Lift Access') && !property.amenities.includes('Lift')) {
     tradeOffs.push('Higher floor with no private elevator');
   }
   if (property.price > (req.budgetMax || 10000000) * 0.95) {
     tradeOffs.push('Near the upper limit of your budget ceiling');
+  }
+  if (property.noiseLevel === 'HIGH') {
+    tradeOffs.push('High traffic / bustling corridor during peak daytime hours');
   }
 
   return {
@@ -558,11 +592,20 @@ async function handleAction(action, payload = {}) {
     }
 
     case 'auth/me': {
-      const { email, phone, userId } = payload;
+      const { email, phone, userId, id } = payload;
       let user = null;
-      if (userId) user = await db.collection('users').findOne({ userId });
-      else if (email) user = await db.collection('users').findOne({ email: email.toLowerCase().trim() });
-      else if (phone) user = await db.collection('users').findOne({ phone: phone.trim() });
+      const targetId = userId || id;
+      if (targetId) {
+        user = await db.collection('users').findOne({
+          $or: [
+            { userId: targetId },
+            { id: targetId },
+            ...(String(targetId).length === 24 ? [{ _id: new ObjectId(String(targetId)) }] : [])
+          ]
+        });
+      }
+      if (!user && email) user = await db.collection('users').findOne({ email: email.toLowerCase().trim() });
+      if (!user && phone) user = await db.collection('users').findOne({ phone: phone.trim() });
 
       if (!user) {
         throw new Error('User session not found');
@@ -573,11 +616,90 @@ async function handleAction(action, payload = {}) {
         action,
         user: {
           id: user.userId || String(user._id),
+          userId: user.userId || String(user._id),
           email: user.email,
           phone: user.phone,
           name: user.name,
           role: user.role,
-          intent: user.intent
+          intent: user.intent,
+          location: user.location || '',
+          ownerType: user.ownerType || 'OWNER',
+          bio: user.bio || '',
+          avatarUrl: user.avatarUrl || user.avatar || ''
+        }
+      };
+    }
+
+    case 'auth/update-profile':
+    case 'users/update': {
+      const { userId, id, email, phone, name, location, ownerType, bio, avatarUrl, avatar, role, intent } = payload;
+      const targetUserId = userId || id;
+      const cleanEmail = (email || '').trim().toLowerCase();
+      const cleanPhone = (phone || '').trim();
+
+      if (!targetUserId && !cleanEmail && !cleanPhone) {
+        throw new Error('User identifier is required to update profile.');
+      }
+
+      const query = {
+        $or: [
+          ...(cleanEmail ? [{ email: cleanEmail }] : []),
+          ...(targetUserId ? [{ userId: targetUserId }, { id: targetUserId }] : []),
+          ...(cleanPhone ? [{ phone: cleanPhone }] : [])
+        ]
+      };
+
+      const updates = { updatedAt: new Date() };
+      if (cleanEmail) updates.email = cleanEmail;
+      if (cleanPhone) updates.phone = cleanPhone;
+      if (name !== undefined) updates.name = name.trim();
+      if (location !== undefined) updates.location = location.trim();
+      if (ownerType !== undefined) updates.ownerType = ownerType === 'AGENT' ? 'AGENT' : 'OWNER';
+      if (bio !== undefined) updates.bio = bio.trim();
+      if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
+      if (avatar !== undefined) updates.avatar = avatar;
+      if (role !== undefined) updates.role = role;
+      if (intent !== undefined) updates.intent = intent;
+
+      let userDoc = await db.collection('users').findOne(query);
+      if (!userDoc) {
+        const newUser = {
+          userId: targetUserId || `usr-${Date.now()}`,
+          name: name?.trim() || (cleanEmail ? cleanEmail.split('@')[0] : 'Verified User'),
+          email: cleanEmail,
+          phone: cleanPhone,
+          role: 'SELLER',
+          ownerType: ownerType === 'AGENT' ? 'AGENT' : 'OWNER',
+          location: location?.trim() || 'Coimbatore',
+          bio: bio?.trim() || '',
+          avatarUrl: avatarUrl || avatar || '',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        const ins = await db.collection('users').insertOne(newUser);
+        userDoc = { ...newUser, _id: ins.insertedId };
+      } else {
+        await db.collection('users').updateOne({ _id: userDoc._id }, { $set: updates });
+        userDoc = { ...userDoc, ...updates };
+      }
+
+      console.log(`[Auth] Profile updated for user: ${userDoc.name} (${userDoc.userId || userDoc.email})`);
+
+      return {
+        success: true,
+        action: 'auth/update-profile',
+        user: {
+          id: userDoc.userId || String(userDoc._id),
+          userId: userDoc.userId || String(userDoc._id),
+          email: userDoc.email,
+          phone: userDoc.phone,
+          name: userDoc.name,
+          role: userDoc.role || 'SELLER',
+          intent: userDoc.intent || 'SELL',
+          location: userDoc.location || '',
+          ownerType: userDoc.ownerType || 'OWNER',
+          bio: userDoc.bio || '',
+          avatarUrl: userDoc.avatarUrl || userDoc.avatar || ''
         }
       };
     }
@@ -588,11 +710,24 @@ async function handleAction(action, payload = {}) {
       if (!propertyData) throw new Error('Missing propertyData in payload');
 
       const id = propertyData.propertyId || propertyData.id || `prop-${Date.now()}`;
+      const sellerId = propertyData.sellerId || propertyData.seller?.id || propertyData.userId;
+      const sellerEmail = propertyData.sellerEmail || propertyData.seller?.email || propertyData.userEmail;
+
       const newProperty = {
         ...propertyData,
         id,
         propertyId: id,
-        slug: propertyData.slug || (propertyData.title || 'property').toLowerCase().replace(/\s+/g, '-'),
+        sellerId: sellerId || id,
+        sellerEmail: sellerEmail || '',
+        seller: {
+          id: sellerId || id,
+          name: propertyData.sellerName || propertyData.seller?.name || 'Verified Owner',
+          email: sellerEmail || '',
+          phone: propertyData.sellerPhone || propertyData.seller?.phone || '',
+          role: propertyData.ownerType || propertyData.seller?.role || 'Individual Owner',
+          verified: true
+        },
+        slug: propertyData.slug || (propertyData.title || 'property').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -606,6 +741,119 @@ async function handleAction(action, payload = {}) {
         propertyId: id,
         property: newProperty,
         message: 'Property uploaded successfully to database!'
+      };
+    }
+
+    // Property Update (Strict Ownership Authorization)
+    case 'properties/update': {
+      const propertyData = payload.propertyData || payload;
+      const targetId = payload.propertyId || payload.id || propertyData?.id || propertyData?.propertyId;
+      if (!targetId) throw new Error('Missing propertyId for properties/update');
+
+      const existing = await db.collection('properties').findOne({
+        $or: [
+          { id: targetId },
+          { propertyId: targetId },
+          { slug: targetId },
+          ...(String(targetId).length === 24 ? [{ _id: new ObjectId(String(targetId)) }] : [])
+        ]
+      });
+
+      if (!existing) {
+        throw new Error(`Property not found with ID: ${targetId}`);
+      }
+
+      // Authorization Check: Only owner of this property is authorized
+      const requestUserId = payload.userId || payload.requestUserId || payload.user?.id || payload.user?.userId;
+      const requestEmail = payload.userEmail || payload.requestEmail || payload.user?.email;
+      const sellerId = existing.sellerId || existing.seller?.id || existing.seller?.userId;
+      const sellerEmail = existing.sellerEmail || existing.seller?.email;
+
+      if (requestUserId || requestEmail) {
+        const isAuthorized = (
+          (requestUserId && sellerId && String(requestUserId) === String(sellerId)) ||
+          (requestEmail && sellerEmail && String(requestEmail).toLowerCase() === String(sellerEmail).toLowerCase())
+        );
+
+        if (!isAuthorized) {
+          const err = new Error('403 Forbidden: You are not authorized to edit this property.');
+          err.statusCode = 403;
+          throw err;
+        }
+      }
+
+      const updates = {
+        ...(propertyData || {}),
+        updatedAt: new Date()
+      };
+      delete updates._id;
+      delete updates.id;
+
+      await db.collection('properties').updateOne(
+        { _id: existing._id },
+        { $set: updates }
+      );
+
+      const updatedProp = await db.collection('properties').findOne({ _id: existing._id });
+      console.log(`[Properties] Property updated: "${updates.title || existing.title}" (${targetId})`);
+
+      return {
+        success: true,
+        action: 'properties/update',
+        propertyId: targetId,
+        property: updatedProp,
+        message: 'Property updated successfully!'
+      };
+    }
+
+    // Property Delete (Strict Ownership Authorization)
+    case 'properties/delete': {
+      const targetId = payload.propertyId || payload.id;
+      if (!targetId) throw new Error('Missing propertyId for properties/delete');
+
+      const existing = await db.collection('properties').findOne({
+        $or: [
+          { id: targetId },
+          { propertyId: targetId },
+          { slug: targetId },
+          ...(String(targetId).length === 24 ? [{ _id: new ObjectId(String(targetId)) }] : [])
+        ]
+      });
+
+      if (!existing) {
+        throw new Error(`Property not found with ID: ${targetId}`);
+      }
+
+      // Authorization Check
+      const requestUserId = payload.userId || payload.requestUserId || payload.user?.id || payload.user?.userId;
+      const requestEmail = payload.userEmail || payload.requestEmail || payload.user?.email;
+      const sellerId = existing.sellerId || existing.seller?.id || existing.seller?.userId;
+      const sellerEmail = existing.sellerEmail || existing.seller?.email;
+
+      if (requestUserId || requestEmail) {
+        const isAuthorized = (
+          (requestUserId && sellerId && String(requestUserId) === String(sellerId)) ||
+          (requestEmail && sellerEmail && String(requestEmail).toLowerCase() === String(sellerEmail).toLowerCase())
+        );
+
+        if (!isAuthorized) {
+          const err = new Error('403 Forbidden: You are not authorized to delete this property.');
+          err.statusCode = 403;
+          throw err;
+        }
+      }
+
+      await db.collection('properties').deleteOne({ _id: existing._id });
+      await db.collection('shortlists').deleteMany({ propertyId: targetId }).catch(() => {});
+      await db.collection('interests').deleteMany({ propertyId: targetId }).catch(() => {});
+
+      console.log(`[Properties] Property deleted from Atlas: "${existing.title}" (${targetId})`);
+
+      return {
+        success: true,
+        action: 'properties/delete',
+        propertyId: targetId,
+        message: 'Property deleted successfully!'
       };
     }
 
@@ -679,7 +927,8 @@ async function handleAction(action, payload = {}) {
         action: 'matching/buyer',
         buyerId: buyer?.userId || 'guest',
         matchCount: recommendations.length,
-        recommendations
+        recommendations,
+        matches: recommendations
       };
     }
 
@@ -1196,7 +1445,8 @@ app.post('/webhook/havenmatch/match', async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error(`[Webhook] Error executing action ${req.body?.action}:`, err.message);
-    res.status(400).json({ success: false, error: err.message });
+    const status = err.statusCode || (err.message?.includes('403') ? 403 : 400);
+    res.status(status).json({ success: false, error: err.message });
   }
 });
 
@@ -1206,7 +1456,8 @@ app.post('/webhook-test/havenmatch/match', async (req, res) => {
     const result = await handleAction(action, req.body);
     res.json(result);
   } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
+    const status = err.statusCode || (err.message?.includes('403') ? 403 : 400);
+    res.status(status).json({ success: false, error: err.message });
   }
 });
 
@@ -1217,7 +1468,8 @@ app.post('/api/:category/:action', async (req, res) => {
     const result = await handleAction(action, req.body);
     res.json(result);
   } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
+    const status = err.statusCode || (err.message?.includes('403') ? 403 : 400);
+    res.status(status).json({ success: false, error: err.message });
   }
 });
 

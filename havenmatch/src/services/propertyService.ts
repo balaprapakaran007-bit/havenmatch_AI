@@ -54,6 +54,14 @@ function saveLocalProperty(prop: Property) {
   } catch { /* ignore */ }
 }
 
+function deleteLocalProperty(propertyId: string) {
+  try {
+    const existing = getLocalProperties();
+    const updated = existing.filter(p => p.id !== propertyId && p.slug !== propertyId);
+    localStorage.setItem(LOCAL_PROPERTIES_KEY, JSON.stringify(updated));
+  } catch { /* ignore */ }
+}
+
 class PropertyService {
   private cache: { data: Property[]; timestamp: number } | null = null;
   private propertyCacheById = new Map<string, { data: Property; timestamp: number }>();
@@ -213,8 +221,8 @@ class PropertyService {
       fullAddress: propertyData.fullAddress || `${propertyData.locality || 'Peelamedu'}, ${propertyData.city || 'Coimbatore'}`,
       coordinates: propertyData.coordinates || { lat: 11.0255, lng: 77.0028 },
       price: propertyData.price || 6500000,
-      priceDisplay: propertyData.priceDisplay || '₹65 Lakhs',
-      pricePerSqFt: propertyData.pricePerSqFt || '₹4,500/sq.ft',
+      priceDisplay: propertyData.priceDisplay || (propertyData.intent === 'RENT' ? `₹${(propertyData.price || 25000).toLocaleString()}/mo` : `₹${((propertyData.price || 6500000) / 100000).toFixed(0)} Lakhs`),
+      pricePerSqFt: propertyData.pricePerSqFt || `₹${Math.round((propertyData.price || 6500000) / (propertyData.builtUpAreaSqFt || 1200))}/sq.ft`,
       maintenanceMonthly: propertyData.maintenanceMonthly || '₹2,500/month',
       bhk: propertyData.bhk || 2,
       bathrooms: propertyData.bathrooms || 2,
@@ -235,6 +243,15 @@ class PropertyService {
       waterSupply: propertyData.waterSupply || 'Corporation + Siruvani',
       gatedCommunity: propertyData.gatedCommunity ?? true,
       security24x7: propertyData.security24x7 ?? true,
+      noiseLevel: propertyData.noiseLevel || 'LOW',
+      safety: propertyData.safety || 'Gated & Guarded',
+      waterAvailability: propertyData.waterAvailability || '24 Hours Supply',
+      electricityAvailability: propertyData.electricityAvailability || '24/7 No Powercuts',
+      petFriendly: propertyData.petFriendly ?? true,
+      suitableFor: propertyData.suitableFor || ['Families', 'Working Professionals'],
+      rules: propertyData.rules || '',
+      additionalDetails: propertyData.additionalDetails || '',
+      nearbyPlaces: propertyData.nearbyPlaces || [],
       amenities: propertyData.amenities || ['Power Backup', '24/7 Security', 'Covered Parking'],
       images: propertyData.images || ['https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80'],
       featured: propertyData.featured ?? true,
@@ -248,7 +265,7 @@ class PropertyService {
       }
     };
 
-    // Save locally first so it never fails
+    // Save locally first
     saveLocalProperty(fullProp);
 
     // Sync to MongoDB Atlas backend
@@ -263,6 +280,48 @@ class PropertyService {
     }
 
     return fullProp;
+  }
+
+  async updateProperty(propertyData: Partial<Property>, userId?: string, userEmail?: string): Promise<Property> {
+    this.invalidateCache();
+    const targetId = propertyData.id || propertyData.slug;
+    if (!targetId) throw new Error('Property ID is required to update property.');
+
+    // Save locally
+    if (propertyData.id) {
+      const existingLocal = getLocalProperties().find(p => p.id === propertyData.id);
+      if (existingLocal) {
+        saveLocalProperty({ ...existingLocal, ...propertyData } as Property);
+      }
+    }
+
+    // Call backend API
+    const res = await callAPI<{ success: boolean; property: Property }>('properties/update', {
+      propertyId: targetId,
+      propertyData,
+      userId,
+      userEmail
+    });
+
+    if (res?.property) {
+      saveLocalProperty(res.property);
+      return res.property;
+    }
+
+    return propertyData as Property;
+  }
+
+  async deleteProperty(propertyId: string, userId?: string, userEmail?: string): Promise<{ success: boolean }> {
+    this.invalidateCache();
+    deleteLocalProperty(propertyId);
+
+    const res = await callAPI<{ success: boolean; message: string }>('properties/delete', {
+      propertyId,
+      userId,
+      userEmail
+    });
+
+    return { success: res?.success ?? true };
   }
 }
 
