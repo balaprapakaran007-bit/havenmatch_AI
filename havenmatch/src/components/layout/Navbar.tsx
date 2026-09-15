@@ -45,6 +45,15 @@ export const Navbar: React.FC = () => {
 
   const cities = ['Coimbatore', 'Chennai', 'Bengaluru', 'Hyderabad', 'Pune', 'Mumbai'];
 
+  // Single source of truth for Owner status:
+  // When user is authenticated as BUYER (or not logged in as owner), isOwner is strictly false.
+  // BUY and RENT search intents are BUYER flows, and must NEVER show "+ Add Property".
+  const isOwner = Boolean(
+    userSession
+      ? (userSession.role === 'SELLER' || userSession.role === 'OWNER')
+      : (role === 'SELLER' || role === 'OWNER')
+  );
+
   const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedCity = e.target.value;
     setRequirements((prev) => ({ ...prev, city: selectedCity }));
@@ -104,7 +113,7 @@ export const Navbar: React.FC = () => {
 
             {/* Desktop Navigation Links */}
             <nav className="hidden md:flex items-center gap-1">
-              {role === 'SELLER' ? (
+              {isOwner ? (
                 <>
                   <Link to="/owner/dashboard" className={navLinkClass(isActive('/owner/dashboard'))}>
                     <Building2 className="w-4 h-4 text-orange-600" />
@@ -186,7 +195,7 @@ export const Navbar: React.FC = () => {
                         {userSession.name}
                       </span>
                       <span className="text-[10px] text-orange-600 font-bold block leading-tight flex items-center justify-end gap-0.5">
-                        <CheckCircle2 className="w-2.5 h-2.5" /> {role === 'SELLER' ? 'Verified Owner' : 'Verified Buyer'}
+                        <CheckCircle2 className="w-2.5 h-2.5" /> {isOwner ? 'Verified Owner' : 'Verified Buyer'}
                       </span>
                     </div>
                   </Link>
@@ -291,7 +300,7 @@ export const Navbar: React.FC = () => {
                 <User className="w-4 h-4 text-orange-600" />
                 <span>Profile</span>
               </Link>
-              {role === 'SELLER' && (
+              {isOwner && (
                 <button
                   type="button"
                   onClick={() => {
@@ -316,7 +325,7 @@ export const Navbar: React.FC = () => {
       >
         <div className="grid grid-cols-5 items-center justify-around text-center">
           
-          {role === 'SELLER' ? (
+          {isOwner ? (
             <>
               {/* 1. Home */}
               <Link

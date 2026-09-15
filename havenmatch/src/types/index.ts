@@ -1,4 +1,4 @@
-export type UserRole = 'BUYER' | 'SELLER';
+export type UserRole = 'BUYER' | 'SELLER' | 'OWNER';
 
 export type BuyerIntent = 'BUY' | 'RENT';
 export type SellerIntent = 'SELL' | 'RENT_OUT';

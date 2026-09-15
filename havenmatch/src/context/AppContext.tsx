@@ -79,8 +79,13 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const initialSession = loadSession();
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [role, setRole] = useState<UserRole>('BUYER');
+  const [userSession, setUserSession] = useState<UserSession | null>(() => initialSession);
+  const [role, setRole] = useState<UserRole>(() => 
+    (initialSession?.role === 'SELLER' || initialSession?.role === 'OWNER' ? 'SELLER' : 'BUYER')
+  );
   const [buyerIntent, setBuyerIntent] = useState<BuyerIntent>('BUY');
   const [activeView, setActiveView] = useState<ViewType>('login');
   const [bgTheme, setBgThemeState] = useState<BackgroundTheme>(() => {
@@ -92,9 +97,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch { /* ignore */ }
     return 'sunset';
   });
-
-  // ─── Session persistence ───────────────────────────────────────────────
-  const [userSession, setUserSession] = useState<UserSession | null>(() => loadSession());
 
   const setBgTheme = (newTheme: BackgroundTheme) => {
     setBgThemeState(newTheme);
