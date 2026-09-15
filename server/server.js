@@ -68,9 +68,27 @@ async function connectToMongo() {
   }
 }
 
-// Initial Database Seeding
+// Initial Database Seeding & Index Setup
 async function initializeDatabase() {
   try {
+    // 1. Ensure Target Indexes
+    try {
+      await db.collection('users').createIndex({ email: 1 }, { unique: true, sparse: true });
+      await db.collection('properties').createIndex({ ownerId: 1 });
+      await db.collection('properties').createIndex({ sellerId: 1 });
+      await db.collection('properties').createIndex({ listingType: 1 });
+      await db.collection('properties').createIndex({ city: 1 });
+      await db.collection('properties').createIndex({ status: 1 });
+      await db.collection('shortlists').createIndex({ userId: 1, propertyId: 1 });
+      await db.collection('interests').createIndex({ buyerId: 1, propertyId: 1 });
+      await db.collection('visit_requests').createIndex({ buyerId: 1, propertyId: 1 });
+      await db.collection('buyer_profiles').createIndex({ userId: 1 }, { unique: true, sparse: true });
+      await db.collection('seller_profiles').createIndex({ userId: 1 }, { unique: true, sparse: true });
+      await db.collection('match_results').createIndex({ buyerId: 1, propertyId: 1 });
+    } catch (idxErr) {
+      console.warn('[MongoDB] Index setup warning:', idxErr.message);
+    }
+
     const propCount = await db.collection('properties').countDocuments();
     console.log(`[MongoDB] Current property count: ${propCount}`);
 
@@ -481,8 +499,8 @@ function calculateLifestyleMatch(rawProp, buyer) {
       location: locScore,
       lifestyle: lifeScore
     },
-    whyThisProperty: whyReasons.slice(0, 4),
-    tradeOffs: tradeOffs.slice(0, 3),
+    whyThisProperty: whyReasons.slice(0, 8),
+    tradeOffs: tradeOffs.slice(0, 5),
     explanation: `${totalScore}% lifestyle match based on your preferences for ${property.locality || property.city}.`,
     property: property
   };
@@ -734,7 +752,7 @@ async function handleAction(action, payload = {}) {
           name: name?.trim() || (cleanEmail ? cleanEmail.split('@')[0] : 'Verified User'),
           email: cleanEmail,
           phone: cleanPhone,
-          role: 'SELLER',
+          role: role || 'SELLER',
           ownerType: ownerType === 'AGENT' ? 'AGENT' : 'OWNER',
           location: location?.trim() || 'Coimbatore',
           bio: bio?.trim() || '',
@@ -747,6 +765,47 @@ async function handleAction(action, payload = {}) {
       } else {
         await db.collection('users').updateOne({ _id: userDoc._id }, { $set: updates });
         userDoc = { ...userDoc, ...updates };
+      }
+
+      // Synchronize to specialized profile collections
+      const profileUserId = userDoc.userId || String(userDoc._id);
+      if (userDoc.role === 'BUYER' || userDoc.role === 'buyer') {
+        await db.collection('buyer_profiles').updateOne(
+          { $or: [{ userId: profileUserId }, { buyerId: profileUserId }, { buyer_id: profileUserId }] },
+          {
+            $set: {
+              userId: profileUserId,
+              buyerId: profileUserId,
+              name: userDoc.name,
+              email: userDoc.email,
+              phone: userDoc.phone,
+              location: userDoc.location,
+              updatedAt: new Date()
+            },
+            $setOnInsert: { createdAt: new Date() }
+          },
+          { upsert: true }
+        );
+      } else {
+        await db.collection('seller_profiles').updateOne(
+          { $or: [{ userId: profileUserId }, { sellerId: profileUserId }, { seller_id: profileUserId }] },
+          {
+            $set: {
+              userId: profileUserId,
+              sellerId: profileUserId,
+              ownerType: userDoc.ownerType === 'AGENT' ? 'AGENT' : 'OWNER',
+              name: userDoc.name,
+              email: userDoc.email,
+              phone: userDoc.phone,
+              location: userDoc.location,
+              bio: userDoc.bio,
+              profilePhoto: userDoc.avatarUrl || userDoc.avatar,
+              updatedAt: new Date()
+            },
+            $setOnInsert: { createdAt: new Date() }
+          },
+          { upsert: true }
+        );
       }
 
       console.log(`[Auth] Profile updated for user: ${userDoc.name} (${userDoc.userId || userDoc.email})`);
@@ -770,20 +829,103 @@ async function handleAction(action, payload = {}) {
       };
     }
 
+    // Buyer Profile Specific Actions
+    case 'buyer/profile/get': {
+      const userId = payload.userId || payload.buyerId || payload.id;
+      if (!userId) throw new Error('Missing userId for buyer/profile/get');
+      const profile = await db.collection('buyer_profiles').findOne({
+        $or: [{ userId }, { buyerId: userId }, { buyer_id: userId }]
+      });
+      return { success: true, action, profile: profile || null };
+    }
+
+    case 'buyer/profile/update': {
+      const userId = payload.userId || payload.buyerId || payload.id;
+      if (!userId) throw new Error('Missing userId for buyer/profile/update');
+      const doc = {
+        userId,
+        buyerId: userId,
+        buyer_id: userId,
+        preferences: payload.preferences || {},
+        lifestyle: payload.lifestyle || {},
+        budgetMax: payload.budgetMax || payload.budget_max,
+        budgetMin: payload.budgetMin || payload.budget_min,
+        intent: payload.intent || payload.listingType || 'BUY',
+        listingType: payload.listingType || payload.intent || 'BUY',
+        bhk: payload.bhk || payload.bedrooms,
+        propertyTypes: payload.propertyTypes || payload.property_types,
+        city: payload.city,
+        locality: payload.locality,
+        locations: payload.locations || payload.preferredLocalities,
+        commute: payload.commute,
+        amenities: payload.amenities,
+        updatedAt: new Date()
+      };
+      await db.collection('buyer_profiles').updateOne(
+        { $or: [{ userId }, { buyerId: userId }, { buyer_id: userId }] },
+        { $set: doc, $setOnInsert: { createdAt: new Date() } },
+        { upsert: true }
+      );
+      return { success: true, action, profile: doc };
+    }
+
+    // Seller Profile Specific Actions
+    case 'seller/profile/get': {
+      const userId = payload.userId || payload.sellerId || payload.id;
+      if (!userId) throw new Error('Missing userId for seller/profile/get');
+      const profile = await db.collection('seller_profiles').findOne({
+        $or: [{ userId }, { sellerId: userId }, { seller_id: userId }]
+      });
+      return { success: true, action, profile: profile || null };
+    }
+
+    case 'seller/profile/update': {
+      const userId = payload.userId || payload.sellerId || payload.id;
+      if (!userId) throw new Error('Missing userId for seller/profile/update');
+      const doc = {
+        userId,
+        sellerId: userId,
+        seller_id: userId,
+        ownerType: payload.ownerType === 'AGENT' ? 'AGENT' : 'OWNER',
+        name: payload.name,
+        email: payload.email,
+        phone: payload.phone,
+        bio: payload.bio,
+        location: payload.location || payload.address,
+        profilePhoto: payload.profilePhoto || payload.avatarUrl || payload.avatar,
+        updatedAt: new Date()
+      };
+      await db.collection('seller_profiles').updateOne(
+        { $or: [{ userId }, { sellerId: userId }, { seller_id: userId }] },
+        { $set: doc, $setOnInsert: { createdAt: new Date() } },
+        { upsert: true }
+      );
+      return { success: true, action, profile: doc };
+    }
+
     // 2. Property Upload / Create (Saves directly to MongoDB Atlas)
     case 'properties/create': {
       const propertyData = payload.propertyData || payload;
       if (!propertyData) throw new Error('Missing propertyData in payload');
 
       const id = propertyData.propertyId || propertyData.id || `prop-${Date.now()}`;
-      const sellerId = propertyData.sellerId || propertyData.seller?.id || propertyData.userId;
+      const ownerId = propertyData.ownerId || propertyData.sellerId || propertyData.seller?.id || propertyData.userId;
+      const sellerId = ownerId;
       const sellerEmail = propertyData.sellerEmail || propertyData.seller?.email || propertyData.userEmail;
+
+      let listingType = propertyData.listingType || (propertyData.intent === 'RENT' || propertyData.intent === 'RENT_OUT' ? 'RENT' : 'BUY');
+      if (listingType === 'SELL') listingType = 'BUY';
+      if (listingType === 'RENT_OUT') listingType = 'RENT';
+      const intent = listingType;
 
       const newProperty = {
         ...propertyData,
         id,
         propertyId: id,
+        ownerId: ownerId || id,
         sellerId: sellerId || id,
+        listingType,
+        intent,
         sellerEmail: sellerEmail || '',
         seller: {
           id: sellerId || id,
@@ -805,7 +947,7 @@ async function handleAction(action, payload = {}) {
         success: true,
         action,
         propertyId: id,
-        property: newProperty,
+        property: normalizeProperty(newProperty),
         message: 'Property uploaded successfully to database!'
       };
     }
@@ -832,11 +974,13 @@ async function handleAction(action, payload = {}) {
       // Authorization Check: Only owner of this property is authorized
       const requestUserId = payload.userId || payload.requestUserId || payload.user?.id || payload.user?.userId;
       const requestEmail = payload.userEmail || payload.requestEmail || payload.user?.email;
-      const sellerId = existing.sellerId || existing.seller?.id || existing.seller?.userId;
+      const ownerId = existing.ownerId || existing.sellerId || existing.seller?.id || existing.seller?.userId;
+      const sellerId = ownerId;
       const sellerEmail = existing.sellerEmail || existing.seller?.email;
 
       if (requestUserId || requestEmail) {
         const isAuthorized = (
+          (requestUserId && ownerId && String(requestUserId) === String(ownerId)) ||
           (requestUserId && sellerId && String(requestUserId) === String(sellerId)) ||
           (requestEmail && sellerEmail && String(requestEmail).toLowerCase() === String(sellerEmail).toLowerCase())
         );
@@ -893,11 +1037,13 @@ async function handleAction(action, payload = {}) {
       // Authorization Check
       const requestUserId = payload.userId || payload.requestUserId || payload.user?.id || payload.user?.userId;
       const requestEmail = payload.userEmail || payload.requestEmail || payload.user?.email;
-      const sellerId = existing.sellerId || existing.seller?.id || existing.seller?.userId;
+      const ownerId = existing.ownerId || existing.sellerId || existing.seller?.id || existing.seller?.userId;
+      const sellerId = ownerId;
       const sellerEmail = existing.sellerEmail || existing.seller?.email;
 
       if (requestUserId || requestEmail) {
         const isAuthorized = (
+          (requestUserId && ownerId && String(requestUserId) === String(ownerId)) ||
           (requestUserId && sellerId && String(requestUserId) === String(sellerId)) ||
           (requestEmail && sellerEmail && String(requestEmail).toLowerCase() === String(sellerEmail).toLowerCase())
         );
@@ -1018,13 +1164,24 @@ async function handleAction(action, payload = {}) {
         .map((p) => calculateLifestyleMatch(p, buyer))
         .sort((a, b) => b.matchScore - a.matchScore);
 
-      // Save match calculation into Atlas for analytics
-      if (buyer?.userId) {
+      // Save match calculation into Atlas for analytics & audit
+      const cleanBuyerId = buyer?.userId || buyer?.buyerId || buyer?.id;
+      if (cleanBuyerId) {
         db.collection('match_results').insertOne({
-          userId: buyer.userId,
-          timestamp: new Date(),
+          buyerId: cleanBuyerId,
+          userId: cleanBuyerId,
+          propertyId: recommendations[0]?.propertyId,
           topMatchScore: recommendations[0]?.matchScore,
-          matchCount: recommendations.length
+          matchCount: recommendations.length,
+          recommendations: recommendations.slice(0, 10).map(r => ({
+            propertyId: r.propertyId,
+            matchScore: r.matchScore,
+            scoreBreakdown: r.scoreBreakdown,
+            whyThisProperty: r.whyThisProperty,
+            tradeOffs: r.tradeOffs
+          })),
+          evaluatedAt: new Date(),
+          timestamp: new Date()
         }).catch(() => {});
       }
 
