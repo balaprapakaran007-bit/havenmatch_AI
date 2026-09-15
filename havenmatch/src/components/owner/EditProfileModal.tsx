@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
-import { User, Phone, Mail, MapPin, Briefcase, FileText, Camera, X, Check, AlertCircle } from 'lucide-react';
+import { User, Phone, Mail, MapPin, Briefcase, FileText, Camera, X, Check, AlertCircle, Upload, Trash2, Loader2 } from 'lucide-react';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -9,17 +9,21 @@ interface EditProfileModalProps {
 }
 
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { userSession, updateProfile, showToast } = useApp();
+  const { userSession, updateProfile, showToast, role } = useApp();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [name, setName] = useState(userSession?.name || '');
   const [email, setEmail] = useState(userSession?.email || '');
   const [phone, setPhone] = useState(userSession?.phone || '');
   const [location, setLocation] = useState(userSession?.location || 'Coimbatore, Tamil Nadu');
   const [ownerType, setOwnerType] = useState<'OWNER' | 'AGENT'>(userSession?.ownerType || 'OWNER');
-  const [bio, setBio] = useState(userSession?.bio || 'Verified real estate owner on HavenMatch AI.');
+  const [bio, setBio] = useState(userSession?.bio || 'Verified real estate user on HavenMatch AI.');
   const [avatarUrl, setAvatarUrl] = useState(
-    userSession?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'
+    userSession?.avatarUrl || (userSession as any)?.avatar || (userSession as any)?.profilePhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'
   );
+  const [selectedFileBase64, setSelectedFileBase64] = useState<string | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string>('');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -32,11 +36,49 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
       if (userSession.location) setLocation(userSession.location);
       if (userSession.ownerType) setOwnerType(userSession.ownerType);
       if (userSession.bio) setBio(userSession.bio);
-      if (userSession.avatarUrl) setAvatarUrl(userSession.avatarUrl);
+      if (userSession.avatarUrl || (userSession as any).avatar || (userSession as any).profilePhoto) {
+        setAvatarUrl(userSession.avatarUrl || (userSession as any).avatar || (userSession as any).profilePhoto);
+      }
+      setSelectedFileBase64(null);
+      setSelectedFileName('');
     }
   }, [userSession, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      showToast('Please select a JPG, PNG, or WEBP image file.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image file size must be less than 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setSelectedFileBase64(base64);
+      setSelectedFileName(file.name);
+      setAvatarUrl(base64); // instant preview
+      showToast('Photo selected. Click Save Changes to apply.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemovePhoto = () => {
+    const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
+    setSelectedFileBase64(null);
+    setSelectedFileName('');
+    setAvatarUrl(defaultAvatar);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    showToast('Photo reset to default avatar.');
+  };
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
@@ -68,14 +110,36 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
 
     setIsSaving(true);
     try {
+      let finalAvatarUrl = avatarUrl;
+
+      // If user uploaded a new local file base64, save it to server uploads
+      if (selectedFileBase64) {
+        setIsUploadingPhoto(true);
+        const uploadRes = await fetch('/api/profile/photo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: userSession?.id || userSession?.userId,
+            email: email.trim().toLowerCase(),
+            imageBase64: selectedFileBase64,
+            fileName: selectedFileName
+          })
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadData.success && uploadData.avatarUrl) {
+          finalAvatarUrl = uploadData.avatarUrl;
+        }
+        setIsUploadingPhoto(false);
+      }
+
       await updateProfile({
         name: name.trim(),
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
         location: location.trim(),
-        ownerType,
+        ownerType: role === 'SELLER' ? ownerType : undefined,
         bio: bio.trim(),
-        avatarUrl: avatarUrl.trim()
+        avatarUrl: finalAvatarUrl
       });
 
       showToast('Profile updated successfully!');
@@ -85,8 +149,11 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
       showToast(err.message || 'Failed to update profile.');
     } finally {
       setIsSaving(false);
+      setIsUploadingPhoto(false);
     }
   };
+
+  const isSeller = role === 'SELLER';
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
@@ -95,12 +162,16 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div>
-            <h3 className="text-xl font-black text-slate-900">Edit Owner Profile</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Update your personal details and public listing representation.</p>
+            <h3 className="text-xl font-black text-slate-900">
+              {isSeller ? 'Edit Owner Profile' : 'Edit Buyer Profile'}
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Update your photo, contact details, and account preferences.
+            </p>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -108,28 +179,63 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
 
         <form onSubmit={handleSave} className="space-y-4">
           
-          {/* Avatar Preview & URL */}
-          <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-            <img
-              src={avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'}
-              alt="Avatar Preview"
-              className="w-16 h-16 rounded-2xl object-cover border-2 border-orange-500 shadow-xs shrink-0"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
-              }}
-            />
-            <div className="flex-1">
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
-                <Camera className="w-3.5 h-3.5 text-orange-600" />
-                <span>Profile Photo URL</span>
-              </label>
-              <input
-                type="url"
-                value={avatarUrl}
-                onChange={(e) => setAvatarUrl(e.target.value)}
-                placeholder="https://images.unsplash.com/..."
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-orange-500"
-              />
+          {/* Real Device Photo Upload Area */}
+          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3">
+            <span className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <Camera className="w-3.5 h-3.5 text-orange-600" />
+              <span>Profile Photo</span>
+            </span>
+
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <img
+                  src={avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'}
+                  alt="Avatar Preview"
+                  className="w-20 h-20 rounded-2xl object-cover border-2 border-orange-500 shadow-sm shrink-0 bg-white"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
+                  }}
+                />
+                {isUploadingPhoto && (
+                  <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center text-white">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-1 space-y-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                />
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Choose Photo from Device</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 hover:bg-rose-50 hover:border-rose-200 text-slate-600 hover:text-rose-600 text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Remove Photo</span>
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-slate-500">
+                  Supported formats: JPG, PNG, WEBP (Max 5MB). Photo is securely stored on your account.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -146,7 +252,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                 setName(e.target.value);
                 if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
               }}
-              placeholder="e.g. Dr. K. Senthil Kumar"
+              placeholder="e.g. Senthil Kumar"
               className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm focus:outline-none transition-colors ${
                 errors.name ? 'border-rose-400 bg-rose-50/30 focus:border-rose-500' : 'border-slate-200 focus:border-orange-500'
               }`}

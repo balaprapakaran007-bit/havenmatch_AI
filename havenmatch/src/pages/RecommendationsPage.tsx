@@ -119,6 +119,10 @@ export const RecommendationsPage: React.FC = () => {
     return list;
   }, [properties, searchQuery, intentFilter, filterBhk, selectedLocality, sortBy, matches]);
 
+  const top10Properties = useMemo(() => {
+    return displayedProperties.slice(0, 10);
+  }, [displayedProperties]);
+
   return (
     <div className="min-h-screen bg-[#FAF9F6] py-6 sm:py-8 pb-24 md:pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 text-left">
@@ -135,15 +139,15 @@ export const RecommendationsPage: React.FC = () => {
               </h1>
               {!isLoadingProps && (
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-orange-600 text-white shadow-xs">
-                  {displayedProperties.length} {displayedProperties.length === 1 ? 'Home' : 'Homes'}
+                  {top10Properties.length} {top10Properties.length === 1 ? 'Home' : 'Homes'} Selected
                 </span>
               )}
             </div>
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
               {isLoadingProps
                 ? 'Evaluating lifestyle compatibility and verified local amenities...'
-                : displayedProperties.length > 0
-                ? `We found ${displayedProperties.length} homes that fit your lifestyle, commute, and budget.`
+                : top10Properties.length > 0
+                ? `${top10Properties.length} homes selected for your lifestyle, commute, and budget.`
                 : 'No homes match your current filter combination.'}
             </p>
           </div>
@@ -203,39 +207,37 @@ export const RecommendationsPage: React.FC = () => {
               </div>
 
               {/* BHK Pills */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                {(['ALL', 1, 2, 3, 4] as const).map((bhk) => (
+              <div className="flex items-center gap-1">
+                {(['ALL', 2, 3, 4] as const).map((bhk) => (
                   <button
                     key={bhk}
                     onClick={() => setFilterBhk(bhk)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       filterBhk === bhk
-                        ? 'border-orange-600 bg-orange-50 text-orange-800'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                        ? 'bg-orange-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
                     {bhk === 'ALL' ? 'All BHK' : bhk === 4 ? '4+ BHK' : `${bhk} BHK`}
                   </button>
                 ))}
               </div>
+            </div>
 
-              {/* Locality Dropdown */}
+            {/* Locality & Sort Selectors */}
+            <div className="flex items-center gap-2">
               <select
                 value={selectedLocality}
                 onChange={(e) => setSelectedLocality(e.target.value)}
-                className="px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-700 focus:outline-none focus:border-orange-500 cursor-pointer"
+                className="px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-800 focus:outline-none cursor-pointer"
               >
                 {coimbatoreLocalities.map((loc) => (
-                  <option key={loc} value={loc === 'All Localities' ? 'ALL' : loc}>
+                  <option key={loc} value={loc}>
                     {loc}
                   </option>
                 ))}
               </select>
-            </div>
 
-            {/* Sort Dropdown */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-400 hidden sm:inline">Sort:</span>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
@@ -262,7 +264,7 @@ export const RecommendationsPage: React.FC = () => {
               </div>
             ))}
           </div>
-        ) : displayedProperties.length === 0 ? (
+        ) : top10Properties.length === 0 ? (
           <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm space-y-3">
             <Compass className="w-12 h-12 text-slate-300 mx-auto mb-2" />
             <h3 className="text-lg font-bold text-slate-800">No properties match your exact filters.</h3>
@@ -274,7 +276,7 @@ export const RecommendationsPage: React.FC = () => {
                 setSearchQuery('');
                 setIntentFilter('ALL');
                 setFilterBhk('ALL');
-                setSelectedLocality('ALL');
+                setSelectedLocality('All Localities');
               }}
               className="px-5 py-2.5 rounded-xl bg-orange-600 text-white font-bold text-xs shadow-sm cursor-pointer hover:bg-orange-700 transition-all"
             >
@@ -283,7 +285,7 @@ export const RecommendationsPage: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {displayedProperties.map((prop) => {
+            {top10Properties.map((prop) => {
               const propId = prop.id || (prop as any).propertyId || '';
               return <PropertyCard key={propId} property={{ ...prop, id: propId }} match={matches[propId]} />;
             })}

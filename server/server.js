@@ -2,12 +2,28 @@ import express from 'express';
 import cors from 'cors';
 import { MongoClient, ObjectId } from 'mongodb';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Ensure upload directory exists
+const uploadsDir = path.join(__dirname, 'uploads', 'avatars');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const MONGO_URI =
   process.env.MONGODB_URI ||
@@ -914,6 +930,99 @@ async function handleAction(action, payload = {}) {
           bio: userDoc.bio || '',
           avatarUrl: userDoc.avatarUrl || userDoc.avatar || ''
         }
+      };
+    }
+
+    case 'profile/photo':
+    case 'users/avatar': {
+      const { userId, id, email, imageBase64, mimeType, fileName } = payload;
+      const targetUserId = userId || id;
+      const cleanEmail = (email || '').trim().toLowerCase();
+
+      if (!imageBase64) {
+        throw new Error('No image data provided for profile photo upload.');
+      }
+
+      // Determine extension
+      let ext = 'jpg';
+      let cleanBase64 = imageBase64;
+      if (imageBase64.includes(';base64,')) {
+        const parts = imageBase64.split(';base64,');
+        const header = parts[0];
+        cleanBase64 = parts[1];
+        if (header.includes('png')) ext = 'png';
+        else if (header.includes('webp')) ext = 'webp';
+        else if (header.includes('gif')) ext = 'gif';
+        else if (header.includes('jpeg') || header.includes('jpg')) ext = 'jpg';
+      } else if (mimeType) {
+        if (mimeType.includes('png')) ext = 'png';
+        else if (mimeType.includes('webp')) ext = 'webp';
+        else if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = 'jpg';
+      } else if (fileName && fileName.includes('.')) {
+        ext = fileName.split('.').pop().toLowerCase();
+      }
+
+      const buffer = Buffer.from(cleanBase64, 'base64');
+      if (buffer.length > 10 * 1024 * 1024) {
+        throw new Error('Image size exceeds 10MB limit.');
+      }
+
+      const safeId = (targetUserId || cleanEmail || 'user').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `avatar_${safeId}_${Date.now()}.${ext}`;
+      const filePath = path.join(uploadsDir, filename);
+
+      fs.writeFileSync(filePath, buffer);
+      console.log(`[Upload] Saved avatar to: ${filePath} (${buffer.length} bytes)`);
+
+      const avatarUrl = `/uploads/avatars/${filename}`;
+
+      // Update in MongoDB
+      const query = {
+        $or: [
+          ...(cleanEmail ? [{ email: cleanEmail }] : []),
+          ...(targetUserId ? [{ userId: targetUserId }, { id: targetUserId }] : [])
+        ]
+      };
+
+      if (query.$or.length > 0) {
+        await db.collection('users').updateOne(
+          query,
+          { $set: { avatarUrl, avatar: avatarUrl, profilePhoto: avatarUrl, updatedAt: new Date() } }
+        );
+        if (targetUserId) {
+          await db.collection('buyer_profiles').updateOne(
+            { $or: [{ userId: targetUserId }, { buyerId: targetUserId }] },
+            { $set: { avatarUrl, profilePhoto: avatarUrl, updatedAt: new Date() } }
+          );
+          await db.collection('seller_profiles').updateOne(
+            { $or: [{ userId: targetUserId }, { sellerId: targetUserId }] },
+            { $set: { avatarUrl, profilePhoto: avatarUrl, updatedAt: new Date() } }
+          );
+        }
+      }
+
+      let userDoc = null;
+      if (query.$or.length > 0) {
+        userDoc = await db.collection('users').findOne(query);
+      }
+
+      return {
+        success: true,
+        action: 'profile/photo',
+        avatarUrl,
+        user: userDoc ? {
+          id: userDoc.userId || String(userDoc._id),
+          userId: userDoc.userId || String(userDoc._id),
+          email: userDoc.email,
+          phone: userDoc.phone,
+          name: userDoc.name,
+          role: userDoc.role,
+          intent: userDoc.intent,
+          location: userDoc.location || '',
+          ownerType: userDoc.ownerType || 'OWNER',
+          bio: userDoc.bio || '',
+          avatarUrl: userDoc.avatarUrl || avatarUrl
+        } : null
       };
     }
 
@@ -2194,6 +2303,25 @@ app.post('/api/interest', async (req, res) => {
 app.post('/api/visits', async (req, res) => {
   try {
     const result = await handleAction('visits/schedule', req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// REST Profile Photo Upload Endpoints
+app.post('/api/profile/photo', async (req, res) => {
+  try {
+    const result = await handleAction('profile/photo', req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/users/avatar', async (req, res) => {
+  try {
+    const result = await handleAction('users/avatar', req.body);
     res.json(result);
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });

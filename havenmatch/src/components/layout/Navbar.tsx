@@ -155,14 +155,10 @@ export const Navbar: React.FC = () => {
                     <span>Saved ({savedPropertyIds.length})</span>
                   </Link>
 
-                  <button
-                    type="button"
-                    onClick={() => setIsAddPropertyModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-orange-700 hover:text-orange-800 hover:bg-orange-50/70 rounded-lg transition-all cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4 text-orange-600" />
-                    <span>+ Add Property</span>
-                  </button>
+                  <Link to="/profile" className={navLinkClass(isActive('/profile'))}>
+                    <User className="w-4 h-4 text-orange-600" />
+                    <span>Profile</span>
+                  </Link>
                 </>
               )}
             </nav>
@@ -172,14 +168,28 @@ export const Navbar: React.FC = () => {
               {/* Authenticated User Session Info & Role Badge */}
               {userSession ? (
                 <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-                  <div className="text-right hidden sm:block">
-                    <span className="text-xs font-bold text-slate-900 block leading-tight truncate max-w-[120px]">
-                      {userSession.name}
-                    </span>
-                    <span className="text-[10px] text-orange-600 font-bold block leading-tight flex items-center justify-end gap-0.5">
-                      <CheckCircle2 className="w-2.5 h-2.5" /> {role === 'SELLER' ? 'Verified Owner' : 'Verified Buyer'}
-                    </span>
-                  </div>
+                  <Link
+                    to="/profile"
+                    className="flex items-center gap-2 p-1 rounded-xl hover:bg-orange-50/70 transition-all text-left"
+                    title="View Profile"
+                  >
+                    <img
+                      src={userSession.avatarUrl || (userSession as any).avatar || (userSession as any).profilePhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
+                      alt={userSession.name}
+                      className="w-8 h-8 rounded-full object-cover border border-orange-500 shadow-2xs"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
+                      }}
+                    />
+                    <div className="text-right hidden sm:block">
+                      <span className="text-xs font-bold text-slate-900 block leading-tight truncate max-w-[120px]">
+                        {userSession.name}
+                      </span>
+                      <span className="text-[10px] text-orange-600 font-bold block leading-tight flex items-center justify-end gap-0.5">
+                        <CheckCircle2 className="w-2.5 h-2.5" /> {role === 'SELLER' ? 'Verified Owner' : 'Verified Buyer'}
+                      </span>
+                    </div>
+                  </Link>
                   <button
                     onClick={() => {
                       logout();
@@ -273,23 +283,33 @@ export const Navbar: React.FC = () => {
                 <Heart className="w-4 h-4 text-orange-600" />
                 <span>Saved Shortlist ({savedPropertyIds.length})</span>
               </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setIsAddPropertyModalOpen(true);
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-orange-700 bg-orange-50 border border-orange-200 text-left"
+              <Link
+                to={userSession ? '/profile' : '/auth?redirect=/profile'}
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700"
               >
-                <Plus className="w-4 h-4 text-orange-600" />
-                <span>+ Add Property</span>
-              </button>
+                <User className="w-4 h-4 text-orange-600" />
+                <span>Profile</span>
+              </Link>
+              {role === 'SELLER' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setIsAddPropertyModalOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-orange-700 bg-orange-50 border border-orange-200 text-left"
+                >
+                  <Plus className="w-4 h-4 text-orange-600" />
+                  <span>+ Add Property</span>
+                </button>
+              )}
             </div>
           </div>
         )}
       </header>
 
-      {/* Mobile Fixed Bottom Navigation Bar (Screen 6: Home | Explore | + Add Property | AI Match | Saved) */}
+      {/* Mobile Fixed Bottom Navigation Bar */}
       <nav 
         aria-label="Mobile Bottom Navigation"
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 shadow-lg pb-[max(env(safe-area-inset-bottom),0.375rem)]"
@@ -357,7 +377,18 @@ export const Navbar: React.FC = () => {
             </>
           ) : (
             <>
-              {/* 1. Explore */}
+              {/* 1. Home */}
+              <Link
+                to="/"
+                className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
+                  isActive('/') ? 'text-orange-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <Home className="w-5 h-5 mb-0.5" />
+                <span>Home</span>
+              </Link>
+
+              {/* 2. Explore */}
               <Link
                 to="/recommendations"
                 className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
@@ -368,31 +399,7 @@ export const Navbar: React.FC = () => {
                 <span>Explore</span>
               </Link>
 
-              {/* 2. Map Match */}
-              <Link
-                to="/map-match"
-                className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
-                  isActive('/map-match') ? 'text-orange-600 font-bold' : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                <MapPin className="w-5 h-5 mb-0.5 text-orange-600" />
-                <span>Map Match</span>
-              </Link>
-
-              {/* 3. + Add Property */}
-              <button
-                type="button"
-                onClick={() => setIsAddPropertyModalOpen(true)}
-                className="flex flex-col items-center justify-center -mt-4 cursor-pointer focus:outline-none group"
-                aria-label="Add Property"
-              >
-                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center shadow-md group-hover:scale-105 group-active:scale-95 transition-transform">
-                  <Plus className="w-6 h-6 stroke-[2.5]" />
-                </div>
-                <span className="text-[9px] font-bold text-orange-600 mt-0.5 tracking-tight">Add Prop</span>
-              </button>
-
-              {/* 4. AI Match */}
+              {/* 3. AI Match */}
               <Link
                 to={userSession ? '/ai-matching' : '/auth?redirect=/ai-matching'}
                 className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
@@ -405,7 +412,7 @@ export const Navbar: React.FC = () => {
                 <span>AI Match</span>
               </Link>
 
-              {/* 5. Saved */}
+              {/* 4. Saved */}
               <Link
                 to="/saved"
                 className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors relative ${
@@ -423,6 +430,19 @@ export const Navbar: React.FC = () => {
                   )}
                 </div>
                 <span>Saved</span>
+              </Link>
+
+              {/* 5. Profile */}
+              <Link
+                to={userSession ? '/profile' : '/auth?redirect=/profile'}
+                className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
+                  isActive('/profile')
+                    ? 'text-orange-600 font-bold'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <User className="w-5 h-5 mb-0.5 text-orange-600" />
+                <span>Profile</span>
               </Link>
             </>
           )}
