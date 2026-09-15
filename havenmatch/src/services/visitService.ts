@@ -58,14 +58,30 @@ class VisitService {
   }
 
   async updateStatus(visitId: string, status: Visit['status']): Promise<Visit | null> {
-    const idx = this.visits.findIndex(v => v.id === visitId);
+    const idx = this.visits.findIndex(v => v.id === visitId || (v as any)._id === visitId);
+    let updated: Visit | null = null;
     if (idx !== -1) {
       this.visits[idx] = { ...this.visits[idx], status };
+      updated = this.visits[idx];
       saveToStorage(this.visits);
-      callAPI('visits/updateStatus', { visitId, status }).catch(() => { /* ignore */ });
-      return this.visits[idx];
     }
-    return null;
+
+    try {
+      const res = await callAPI<{ success: boolean; visit: Visit }>('visits/updateStatus', { visitId, status });
+      if (res.visit) {
+        updated = res.visit;
+        if (idx !== -1) {
+          this.visits[idx] = updated;
+        } else {
+          this.visits.unshift(updated);
+        }
+        saveToStorage(this.visits);
+      }
+    } catch {
+      // Offline fallback
+    }
+
+    return updated;
   }
 }
 

@@ -431,6 +431,99 @@ export const OwnerDashboardPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Visit Requests & Buyer Enquiries Section */}
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <h2 className="text-lg font-black text-slate-900">Scheduled Visits & Inquiries</h2>
+                  <p className="text-xs text-slate-500">Confirm, reschedule or manage buyer site inspection requests.</p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-xs font-black bg-blue-50 text-blue-700 border border-blue-200">
+                  {visits.length} Total Visits
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {visits.length === 0 ? (
+                  <div className="p-8 text-center bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-200">
+                    <Calendar className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-slate-500">No scheduled visits yet.</p>
+                    <p className="text-xs text-slate-400 mt-0.5">When buyers book visits or express interest, they will appear here in real-time.</p>
+                  </div>
+                ) : (
+                  visits.map((v) => {
+                    const isConfirmed = String(v.status).toUpperCase() === 'CONFIRMED';
+                    const isCancelled = String(v.status).toUpperCase() === 'CANCELLED' || String(v.status).toUpperCase() === 'REJECTED';
+
+                    return (
+                      <div
+                        key={v.id}
+                        className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-slate-900">{v.buyerName || 'Verified Buyer'}</span>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                isConfirmed
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                  : isCancelled
+                                  ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                  : 'bg-amber-100 text-amber-800 border border-amber-300'
+                              }`}
+                            >
+                              {v.status || 'Pending'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600 font-semibold">
+                            Property: <span className="text-slate-900 font-bold">{v.propertyTitle || 'Listing'}</span>
+                          </p>
+                          <p className="text-[11px] text-slate-500 flex items-center gap-1.5 font-medium">
+                            <Calendar className="w-3.5 h-3.5 text-orange-600" />
+                            <span>{v.date} ({v.timeSlot || 'Flexible timing'})</span>
+                            {v.buyerPhone && (
+                              <>
+                                <span>•</span>
+                                <span>📞 {v.buyerPhone}</span>
+                              </>
+                            )}
+                          </p>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                          {!isConfirmed && (
+                            <button
+                              onClick={async () => {
+                                await visitService.updateStatus(v.id, 'CONFIRMED');
+                                setVisits(prev => prev.map(item => item.id === v.id ? { ...item, status: 'Confirmed' } : item));
+                                showToast('Visit request confirmed successfully!');
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors"
+                            >
+                              Confirm Visit
+                            </button>
+                          )}
+                          {!isCancelled && (
+                            <button
+                              onClick={async () => {
+                                await visitService.updateStatus(v.id, 'REJECTED');
+                                setVisits(prev => prev.map(item => item.id === v.id ? { ...item, status: 'Cancelled' } : item));
+                                showToast('Visit request declined.');
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 text-rose-600 border border-slate-200 hover:border-rose-300 font-bold text-xs transition-colors"
+                            >
+                              Decline
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
           </main>
 
         </div>

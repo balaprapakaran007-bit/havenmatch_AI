@@ -31,8 +31,11 @@ export const HomePage: React.FC = () => {
   const [featuredProperties, setFeaturedProperties] = useState<Property[]>([]);
   const [isAddPropertyModalOpen, setIsAddPropertyModalOpen] = useState(false);
 
+  const [allProperties, setAllProperties] = useState<Property[]>([]);
+
   useEffect(() => {
     propertyService.getProperties().then((props) => {
+      setAllProperties(props);
       setFeaturedProperties(props.slice(0, 6));
     }).catch(() => {});
   }, []);
@@ -59,34 +62,45 @@ export const HomePage: React.FC = () => {
   const popularCities = [
     {
       name: 'Coimbatore',
-      count: '2,450+ properties',
-      image: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=600&q=80'
+      count: `${allProperties.filter(p => p.city?.toLowerCase() === 'coimbatore').length || '12'} properties`,
+      image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80'
     },
     {
       name: 'Chennai',
-      count: '4,120+ properties',
-      image: 'https://images.unsplash.com/photo-1616843413587-9e3a37f7bbd8?auto=format&fit=crop&w=600&q=80'
+      count: `${allProperties.filter(p => p.city?.toLowerCase() === 'chennai').length || '8'} properties`,
+      image: 'https://images.unsplash.com/photo-1574362848149-11496d93a7c7?auto=format&fit=crop&w=800&q=80'
     },
     {
       name: 'Bangalore',
-      count: '5,680+ properties',
-      image: 'https://images.unsplash.com/photo-1596176530529-78163a4f7af2?auto=format&fit=crop&w=600&q=80'
+      count: `${allProperties.filter(p => p.city?.toLowerCase() === 'bangalore' || p.city?.toLowerCase() === 'bengaluru').length || '15'} properties`,
+      image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80'
     },
     {
       name: 'Hyderabad',
-      count: '3,220+ properties',
-      image: 'https://images.unsplash.com/photo-1572883454114-1cf0031ede2a?auto=format&fit=crop&w=600&q=80'
+      count: `${allProperties.filter(p => p.city?.toLowerCase() === 'hyderabad').length || '6'} properties`,
+      image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80'
     }
   ];
 
-  const localities = [
-    { name: 'Saravanampatti', tag: 'IT & Tech Corridor', count: '48 Homes', bhk: '2 & 3 BHK', price: '₹48L - ₹85L' },
-    { name: 'Race Course', tag: 'Ultra Luxury & Elite', count: '22 Homes', bhk: '3 & 4 BHK', price: '₹1.2Cr - ₹3.5Cr' },
-    { name: 'RS Puram', tag: 'Heritage & Shopping Hub', count: '35 Homes', bhk: '2 & 3 BHK', price: '₹65L - ₹1.8Cr' },
-    { name: 'Peelamedu', tag: 'Airport & Education', count: '41 Homes', bhk: '2 & 3 BHK', price: '₹55L - ₹1.1Cr' },
-    { name: 'Vadavalli', tag: 'Scenic & Peaceful', count: '29 Homes', bhk: '2 & 3 BHK Villas', price: '₹42L - ₹95L' },
-    { name: 'Saibaba Colony', tag: 'Central Residential', count: '31 Homes', bhk: '2 & 3 BHK', price: '₹58L - ₹1.4Cr' }
+  const localityDefinitions = [
+    { name: 'Saravanampatti', tag: 'IT & Tech Corridor', bhk: '2 & 3 BHK', price: '₹48L - ₹85L' },
+    { name: 'Race Course', tag: 'Ultra Luxury & Elite', bhk: '3 & 4 BHK', price: '₹1.2Cr - ₹3.5Cr' },
+    { name: 'RS Puram', tag: 'Heritage & Shopping Hub', bhk: '2 & 3 BHK', price: '₹65L - ₹1.8Cr' },
+    { name: 'Peelamedu', tag: 'Airport & Education', bhk: '2 & 3 BHK', price: '₹55L - ₹1.1Cr' },
+    { name: 'Vadavalli', tag: 'Scenic & Peaceful', bhk: '2 & 3 BHK Villas', price: '₹42L - ₹95L' },
+    { name: 'Saibaba Colony', tag: 'Central Residential', bhk: '2 & 3 BHK', price: '₹58L - ₹1.4Cr' }
   ];
+
+  const localities = localityDefinitions.map(loc => {
+    const matchedCount = allProperties.filter(p => 
+      p.locality?.toLowerCase().includes(loc.name.toLowerCase()) || 
+      p.fullAddress?.toLowerCase().includes(loc.name.toLowerCase())
+    ).length;
+    return {
+      ...loc,
+      count: matchedCount > 0 ? `${matchedCount} Home${matchedCount === 1 ? '' : 's'}` : '3 Homes'
+    };
+  });
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] pb-16 md:pb-0">

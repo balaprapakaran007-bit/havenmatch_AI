@@ -29,6 +29,7 @@ import { MessagesPage } from './pages/MessagesPage';
 import { ComparePage } from './pages/ComparePage';
 import { AIMatchingPage } from './pages/AIMatchingPage';
 import { SavedPage } from './pages/SavedPage';
+import { MapMatchPage } from './pages/MapMatchPage';
 
 const AppContent: React.FC = () => {
   const { openVisitModal, setOpenVisitModal, visitTargetPropertyId } = useApp();
@@ -51,6 +52,10 @@ const AppContent: React.FC = () => {
         <Routes>
           {/* 1. Home Page */}
           <Route path="/" element={<HomePage />} />
+
+          {/* Interactive Map Match Spatial Page */}
+          <Route path="/map-match" element={<MapMatchPage />} />
+          <Route path="/map-match/:id" element={<MapMatchPage />} />
 
           {/* Dedicated AI Matching Journey */}
           <Route path="/ai-matching" element={<AIMatchingPage />} />

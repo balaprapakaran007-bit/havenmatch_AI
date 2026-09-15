@@ -104,73 +104,80 @@ export const Navbar: React.FC = () => {
 
             {/* Desktop Navigation Links */}
             <nav className="hidden md:flex items-center gap-1">
-              <Link to="/recommendations" className={navLinkClass(isActive('/recommendations'))}>
-                <Compass className="w-4 h-4 text-orange-600" />
-                <span>Explore</span>
-              </Link>
+              {role === 'SELLER' ? (
+                <>
+                  <Link to="/owner/dashboard" className={navLinkClass(isActive('/owner/dashboard'))}>
+                    <Building2 className="w-4 h-4 text-orange-600" />
+                    <span>Dashboard</span>
+                  </Link>
 
-              <Link
-                to={userSession ? '/ai-matching' : '/auth?redirect=/ai-matching'}
-                className={navLinkClass(isActive('/ai-matching') || isActive('/choose-role') || isActive('/goal'))}
-              >
-                <Sparkles className="w-4 h-4 text-orange-600" />
-                <span>AI Match</span>
-              </Link>
+                  <Link to="/map-match" className={navLinkClass(isActive('/map-match'))}>
+                    <MapPin className="w-4 h-4 text-orange-600" />
+                    <span>Map Match</span>
+                  </Link>
 
-              <Link to="/saved" className={navLinkClass(isActive('/saved') || isActive('/buyer/dashboard'))}>
-                <Heart className="w-4 h-4 text-orange-600" />
-                <span>Saved ({savedPropertyIds.length})</span>
-              </Link>
+                  <Link to="/owner/matches" className={navLinkClass(isActive('/owner/matches'))}>
+                    <Users className="w-4 h-4 text-orange-600" />
+                    <span>Buyer Matches</span>
+                  </Link>
 
-              <button
-                type="button"
-                onClick={() => setIsAddPropertyModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-orange-700 hover:text-orange-800 hover:bg-orange-50/70 rounded-lg transition-all cursor-pointer"
-              >
-                <Plus className="w-4 h-4 text-orange-600" />
-                <span>+ Add Property</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddPropertyModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-orange-700 hover:text-orange-800 hover:bg-orange-50/70 rounded-lg transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4 text-orange-600" />
+                    <span>+ Add Property</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link to="/recommendations" className={navLinkClass(isActive('/recommendations'))}>
+                    <Compass className="w-4 h-4 text-orange-600" />
+                    <span>Explore</span>
+                  </Link>
+
+                  <Link
+                    to={userSession ? '/ai-matching' : '/auth?redirect=/ai-matching'}
+                    className={navLinkClass(isActive('/ai-matching') || isActive('/choose-role') || isActive('/goal'))}
+                  >
+                    <Sparkles className="w-4 h-4 text-orange-600" />
+                    <span>AI Match</span>
+                  </Link>
+
+                  <Link to="/map-match" className={navLinkClass(isActive('/map-match'))}>
+                    <MapPin className="w-4 h-4 text-orange-600" />
+                    <span>Map Match</span>
+                  </Link>
+
+                  <Link to="/saved" className={navLinkClass(isActive('/saved') || isActive('/buyer/dashboard'))}>
+                    <Heart className="w-4 h-4 text-orange-600" />
+                    <span>Saved ({savedPropertyIds.length})</span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsAddPropertyModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-orange-700 hover:text-orange-800 hover:bg-orange-50/70 rounded-lg transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4 text-orange-600" />
+                    <span>+ Add Property</span>
+                  </button>
+                </>
+              )}
             </nav>
 
             {/* Right Action Icons & Auth */}
             <div className="flex items-center gap-2">
-              {/* Role Indicator / Switcher */}
-              <div className="hidden sm:flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRole('BUYER');
-                    showToast('Switched to Buyer Mode');
-                  }}
-                  className={`px-2.5 py-1 rounded-lg transition-all ${
-                    role === 'BUYER' ? 'bg-white text-orange-700 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  Buyer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRole('SELLER');
-                    showToast('Switched to Owner Mode');
-                  }}
-                  className={`px-2.5 py-1 rounded-lg transition-all ${
-                    role === 'SELLER' ? 'bg-white text-orange-700 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  Owner
-                </button>
-              </div>
-
-              {/* User Session Info */}
+              {/* Authenticated User Session Info & Role Badge */}
               {userSession ? (
                 <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
                   <div className="text-right hidden sm:block">
                     <span className="text-xs font-bold text-slate-900 block leading-tight truncate max-w-[120px]">
                       {userSession.name}
                     </span>
-                    <span className="text-[10px] text-orange-600 font-medium block leading-tight flex items-center justify-end gap-0.5">
-                      <CheckCircle2 className="w-2.5 h-2.5" /> {role}
+                    <span className="text-[10px] text-orange-600 font-bold block leading-tight flex items-center justify-end gap-0.5">
+                      <CheckCircle2 className="w-2.5 h-2.5" /> {role === 'SELLER' ? 'Verified Owner' : 'Verified Buyer'}
                     </span>
                   </div>
                   <button
@@ -243,6 +250,14 @@ export const Navbar: React.FC = () => {
                 <span>Explore Properties</span>
               </Link>
               <Link
+                to="/map-match"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700"
+              >
+                <MapPin className="w-4 h-4 text-orange-600" />
+                <span>Map Match</span>
+              </Link>
+              <Link
                 to={userSession ? '/ai-matching' : '/auth?redirect=/ai-matching'}
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700"
@@ -281,73 +296,136 @@ export const Navbar: React.FC = () => {
       >
         <div className="grid grid-cols-5 items-center justify-around text-center">
           
-          {/* 1. Home */}
-          <Link
-            to="/"
-            className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
-              isActive('/') ? 'text-orange-600 font-bold' : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <Home className="w-5 h-5 mb-0.5" />
-            <span>Home</span>
-          </Link>
+          {role === 'SELLER' ? (
+            <>
+              {/* 1. Home */}
+              <Link
+                to="/"
+                className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
+                  isActive('/') ? 'text-orange-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <Home className="w-5 h-5 mb-0.5" />
+                <span>Home</span>
+              </Link>
 
-          {/* 2. Explore */}
-          <Link
-            to="/recommendations"
-            className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
-              isActive('/recommendations') ? 'text-orange-600 font-bold' : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <Compass className="w-5 h-5 mb-0.5" />
-            <span>Explore</span>
-          </Link>
+              {/* 2. Dashboard */}
+              <Link
+                to="/owner/dashboard"
+                className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
+                  isActive('/owner/dashboard') ? 'text-orange-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <Building2 className="w-5 h-5 mb-0.5" />
+                <span>Dashboard</span>
+              </Link>
 
-          {/* 3. + Add Property (Prominent Center Action) */}
-          <button
-            type="button"
-            onClick={() => setIsAddPropertyModalOpen(true)}
-            className="flex flex-col items-center justify-center -mt-4 cursor-pointer focus:outline-none group"
-            aria-label="Add Property"
-          >
-            <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center shadow-md group-hover:scale-105 group-active:scale-95 transition-transform">
-              <Plus className="w-6 h-6 stroke-[2.5]" />
-            </div>
-            <span className="text-[9px] font-bold text-orange-600 mt-0.5 tracking-tight">Add Property</span>
-          </button>
+              {/* 3. + Add Property */}
+              <button
+                type="button"
+                onClick={() => setIsAddPropertyModalOpen(true)}
+                className="flex flex-col items-center justify-center -mt-4 cursor-pointer focus:outline-none group"
+                aria-label="Add Property"
+              >
+                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center shadow-md group-hover:scale-105 group-active:scale-95 transition-transform">
+                  <Plus className="w-6 h-6 stroke-[2.5]" />
+                </div>
+                <span className="text-[9px] font-bold text-orange-600 mt-0.5 tracking-tight">Add Prop</span>
+              </button>
 
-          {/* 4. AI Match */}
-          <Link
-            to={userSession ? '/ai-matching' : '/auth?redirect=/ai-matching'}
-            className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
-              isActive('/ai-matching') || isActive('/choose-role') || isActive('/goal')
-                ? 'text-orange-600 font-bold'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <Sparkles className="w-5 h-5 mb-0.5 text-orange-600" />
-            <span>AI Match</span>
-          </Link>
+              {/* 4. Map Match */}
+              <Link
+                to="/map-match"
+                className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
+                  isActive('/map-match') ? 'text-orange-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <MapPin className="w-5 h-5 mb-0.5 text-orange-600" />
+                <span>Map Match</span>
+              </Link>
 
-          {/* 5. Saved */}
-          <Link
-            to="/saved"
-            className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors relative ${
-              isActive('/saved') || isActive('/buyer/dashboard')
-                ? 'text-orange-600 font-bold'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <div className="relative">
-              <Heart className="w-5 h-5 mb-0.5" />
-              {savedPropertyIds.length > 0 && (
-                <span className="absolute -top-1 -right-2 px-1 text-[9px] font-bold rounded-full bg-orange-600 text-white leading-tight">
-                  {savedPropertyIds.length}
-                </span>
-              )}
-            </div>
-            <span>Saved</span>
-          </Link>
+              {/* 5. Matches */}
+              <Link
+                to="/owner/matches"
+                className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
+                  isActive('/owner/matches') ? 'text-orange-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <Users className="w-5 h-5 mb-0.5" />
+                <span>Buyers</span>
+              </Link>
+            </>
+          ) : (
+            <>
+              {/* 1. Explore */}
+              <Link
+                to="/recommendations"
+                className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
+                  isActive('/recommendations') ? 'text-orange-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <Compass className="w-5 h-5 mb-0.5" />
+                <span>Explore</span>
+              </Link>
+
+              {/* 2. Map Match */}
+              <Link
+                to="/map-match"
+                className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
+                  isActive('/map-match') ? 'text-orange-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <MapPin className="w-5 h-5 mb-0.5 text-orange-600" />
+                <span>Map Match</span>
+              </Link>
+
+              {/* 3. + Add Property */}
+              <button
+                type="button"
+                onClick={() => setIsAddPropertyModalOpen(true)}
+                className="flex flex-col items-center justify-center -mt-4 cursor-pointer focus:outline-none group"
+                aria-label="Add Property"
+              >
+                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center shadow-md group-hover:scale-105 group-active:scale-95 transition-transform">
+                  <Plus className="w-6 h-6 stroke-[2.5]" />
+                </div>
+                <span className="text-[9px] font-bold text-orange-600 mt-0.5 tracking-tight">Add Prop</span>
+              </button>
+
+              {/* 4. AI Match */}
+              <Link
+                to={userSession ? '/ai-matching' : '/auth?redirect=/ai-matching'}
+                className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors ${
+                  isActive('/ai-matching') || isActive('/choose-role') || isActive('/goal')
+                    ? 'text-orange-600 font-bold'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <Sparkles className="w-5 h-5 mb-0.5 text-orange-600" />
+                <span>AI Match</span>
+              </Link>
+
+              {/* 5. Saved */}
+              <Link
+                to="/saved"
+                className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors relative ${
+                  isActive('/saved') || isActive('/buyer/dashboard')
+                    ? 'text-orange-600 font-bold'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <div className="relative">
+                  <Heart className="w-5 h-5 mb-0.5" />
+                  {savedPropertyIds.length > 0 && (
+                    <span className="absolute -top-1 -right-2 px-1 text-[9px] font-bold rounded-full bg-orange-600 text-white leading-tight">
+                      {savedPropertyIds.length}
+                    </span>
+                  )}
+                </div>
+                <span>Saved</span>
+              </Link>
+            </>
+          )}
 
         </div>
       </nav>

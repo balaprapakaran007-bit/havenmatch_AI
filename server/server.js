@@ -1198,159 +1198,144 @@ async function handleAction(action, payload = {}) {
     // 6. Location POIs & Matching Services
     case 'location/poi': {
       const { propertyId } = payload;
-      const property = await db.collection('properties').findOne({ id: propertyId });
+      let property = null;
+      if (propertyId) {
+        property = await db.collection('properties').findOne({
+          $or: [
+            { id: propertyId },
+            { propertyId: propertyId },
+            { slug: propertyId },
+            ...(String(propertyId).length === 24 ? [{ _id: new ObjectId(String(propertyId)) }] : [])
+          ]
+        });
+      }
 
-      const pois = [
-        {
-          id: 'poi-sch-1',
-          name: 'Delhi Public School (DPS Coimbatore)',
-          category: 'school',
-          categoryLabel: 'CBSE Senior Secondary',
-          distanceKm: 1.8,
-          driveTimeMins: 5,
-          walkTimeMins: 22,
-          icon: 'GraduationCap',
-          directionDegrees: 25,
-          highlight: 'Top 5 CBSE School in Coimbatore with sports academy'
-        },
-        {
-          id: 'poi-sch-2',
-          name: 'PSG College of Technology & Polytechnic',
-          category: 'school',
-          categoryLabel: 'Premier Engineering & Tech Institute',
-          distanceKm: 0.9,
-          driveTimeMins: 3,
-          walkTimeMins: 11,
-          icon: 'GraduationCap',
-          directionDegrees: 40,
-          highlight: 'Ranked top engineering college with world-class campus'
-        },
-        {
-          id: 'poi-sch-3',
-          name: 'GRD College of Science & Commerce',
-          category: 'school',
-          categoryLabel: 'Arts & Science Campus',
-          distanceKm: 1.2,
-          driveTimeMins: 4,
-          walkTimeMins: 15,
-          icon: 'GraduationCap',
-          directionDegrees: 15,
-          highlight: 'Reputed autonomous institution'
-        },
-        {
-          id: 'poi-sch-4',
-          name: 'Stanes Anglo-Indian Higher Secondary School',
-          category: 'school',
-          categoryLabel: 'ICSE Heritage School',
-          distanceKm: 2.6,
-          driveTimeMins: 7,
-          walkTimeMins: 32,
-          icon: 'GraduationCap',
-          directionDegrees: 80,
-          highlight: 'Historic 160-year-old CBSE/ICSE institution'
-        },
-        {
-          id: 'poi-hosp-1',
-          name: 'KMCH Medical Center & Super Specialty Hospital',
-          category: 'hospital',
-          categoryLabel: 'Super Specialty Hospital',
-          distanceKm: 1.2,
-          driveTimeMins: 3,
-          walkTimeMins: 14,
-          icon: 'Hospital',
-          directionDegrees: 90,
-          highlight: '24/7 Level 1 Trauma Care & Multi-organ transplant center'
-        },
-        {
-          id: 'poi-hosp-2',
-          name: 'PSG Hospitals & Emergency Care',
-          category: 'hospital',
-          categoryLabel: 'Teaching Hospital & Research Center',
-          distanceKm: 1.4,
-          driveTimeMins: 4,
-          walkTimeMins: 17,
-          icon: 'Hospital',
-          directionDegrees: 45,
-          highlight: '1,400-bed hospital with 24/7 pharmacy and cardiac care'
-        },
-        {
-          id: 'poi-trans-1',
-          name: 'Peelamedu Main Road Bus Transit',
-          category: 'transit',
-          categoryLabel: 'City Bus Corridor',
-          distanceKm: 0.45,
-          driveTimeMins: 1,
-          walkTimeMins: 5,
-          icon: 'Bus',
-          directionDegrees: 180,
-          highlight: 'Direct buses every 2 minutes to Gandhipuram & Railway Station'
-        },
-        {
-          id: 'poi-trans-2',
-          name: 'Coimbatore International Airport (CJB)',
-          category: 'transit',
-          categoryLabel: 'International Airport',
-          distanceKm: 5.1,
-          driveTimeMins: 12,
-          walkTimeMins: 60,
-          icon: 'Plane',
-          directionDegrees: 75,
-          highlight: 'Daily domestic & international flights'
-        },
-        {
-          id: 'poi-shop-1',
-          name: 'Nilgiris 1905 Supermarket & Bakery',
-          category: 'supermarket',
-          categoryLabel: 'Daily Groceries & Essentials',
-          distanceKm: 0.65,
-          driveTimeMins: 2,
-          walkTimeMins: 8,
-          icon: 'ShoppingBag',
-          directionDegrees: 210,
-          highlight: 'Fresh farm produce, dairy, bakery & organics'
-        },
-        {
-          id: 'poi-shop-2',
-          name: 'Fun Republic Mall & INOX Cinemas',
-          category: 'supermarket',
-          categoryLabel: 'Retail, Dining & Multiplex',
-          distanceKm: 1.8,
-          driveTimeMins: 5,
-          walkTimeMins: 22,
-          icon: 'ShoppingBag',
-          directionDegrees: 30,
-          highlight: '5-screen multiplex, food court & major retail brands'
-        },
-        {
-          id: 'poi-park-1',
-          name: 'Peelamedu Town Park & Walking Track',
-          category: 'park',
-          categoryLabel: 'Green Lung & Jogging Track',
-          distanceKm: 0.9,
-          driveTimeMins: 3,
-          walkTimeMins: 11,
-          icon: 'Trees',
-          directionDegrees: 270,
-          highlight: 'Well-shaded 1.2 km walking track with children play equipment'
-        },
-        {
-          id: 'poi-work-1',
-          name: 'TIDEL Park Coimbatore (ELCOT SEZ)',
-          category: 'techpark',
-          categoryLabel: 'IT/ITES Corridor',
-          distanceKm: 2.8,
-          driveTimeMins: 7,
-          walkTimeMins: 35,
-          icon: 'Briefcase',
-          directionDegrees: 60,
-          highlight: 'Home to 80+ top global tech companies & startups'
-        }
+      const pLat = property?.coordinates?.lat || 11.0168;
+      const pLng = property?.coordinates?.lng || 76.9558;
+      const city = property?.city || 'Coimbatore';
+      const locality = property?.locality || 'City Center';
+
+      // Haversine formula
+      const haversineDist = (lat1, lon1, lat2, lon2) => {
+        const R = 6371; // km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return Math.round(R * c * 10) / 10;
+      };
+
+      const getDir = (lat1, lon1, lat2, lon2) => {
+        const y = Math.sin((lon2 - lon1) * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180);
+        const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+                  Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos((lon2 - lon1) * Math.PI / 180);
+        const brng = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+        const deg = Math.round(brng);
+        const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+        const ix = Math.round(deg / 22.5) % 16;
+        return { direction: dirs[ix], directionDegrees: deg };
+      };
+
+      // Comprehensive Real Landmarks Database
+      const landmarkBank = [
+        // Coimbatore
+        { id: 'cbe-hosp-1', name: 'KMCH Super Specialty Hospital', category: 'hospital', categoryLabel: 'Multi-Specialty Hospital', city: 'Coimbatore', lat: 11.0425, lng: 77.0422, highlight: '24/7 Level 1 Trauma Care & Emergency Services' },
+        { id: 'cbe-hosp-2', name: 'PSG Hospitals & Research Institute', category: 'hospital', categoryLabel: 'Teaching Hospital', city: 'Coimbatore', lat: 11.0268, lng: 77.0034, highlight: '1,400-bed hospital with 24/7 cardiac center' },
+        { id: 'cbe-hosp-3', name: 'G. Kuppuswamy Naidu Memorial Hospital (GKNM)', category: 'hospital', categoryLabel: 'Multi-Specialty Hospital', city: 'Coimbatore', lat: 11.0135, lng: 76.9740, highlight: 'Premier cardiac & oncology care hospital' },
+        { id: 'cbe-sch-1', name: 'Delhi Public School (DPS Coimbatore)', category: 'school', categoryLabel: 'CBSE Senior Secondary', city: 'Coimbatore', lat: 11.0650, lng: 77.0150, highlight: 'Top-ranked CBSE school with world-class sports academy' },
+        { id: 'cbe-sch-2', name: 'PSG College of Technology', category: 'school', categoryLabel: 'Premier Tech & Engineering Institute', city: 'Coimbatore', lat: 11.0250, lng: 77.0020, highlight: 'Premier Tier-1 autonomous engineering college' },
+        { id: 'cbe-sch-3', name: 'Stanes Anglo-Indian Higher Secondary School', category: 'school', categoryLabel: 'ICSE Heritage School', city: 'Coimbatore', lat: 11.0090, lng: 76.9720, highlight: 'Historic 160-year-old esteemed institution' },
+        { id: 'cbe-mall-1', name: 'Brookefields Mall', category: 'shopping', categoryLabel: 'Shopping & Multiplex Mall', city: 'Coimbatore', lat: 11.0112, lng: 76.9580, highlight: '6-screen SPI Cinemas multiplex, lifestyle brands & food court' },
+        { id: 'cbe-mall-2', name: 'Fun Republic Mall & INOX', category: 'shopping', categoryLabel: 'Shopping Mall & Entertainment', city: 'Coimbatore', lat: 11.0242, lng: 77.0045, highlight: 'Top brands, McDonald\'s, gaming zone & INOX' },
+        { id: 'cbe-mall-3', name: 'Prozone Mall Coimbatore', category: 'shopping', categoryLabel: 'Mega Shopping Center', city: 'Coimbatore', lat: 11.0558, lng: 77.0012, highlight: 'One of the largest shopping and entertainment centres in Tamil Nadu' },
+        { id: 'cbe-trans-1', name: 'Coimbatore Junction Railway Station', category: 'transit', categoryLabel: 'Major Railway Terminal', city: 'Coimbatore', lat: 10.9984, lng: 76.9665, highlight: 'Vande Bharat and superfast train connectivity' },
+        { id: 'cbe-trans-2', name: 'Gandhipuram Central Bus Stand', category: 'transit', categoryLabel: 'Intercity Bus Terminal', city: 'Coimbatore', lat: 11.0168, lng: 76.9672, highlight: 'Intercity & local omnibus connectivity hub' },
+        { id: 'cbe-trans-3', name: 'Coimbatore International Airport (CJB)', category: 'transit', categoryLabel: 'International Airport', city: 'Coimbatore', lat: 11.0300, lng: 77.0434, highlight: 'Domestic and international flight terminal' },
+        { id: 'cbe-work-1', name: 'TIDEL Park Coimbatore (ELCOT SEZ)', category: 'techpark', categoryLabel: 'IT/ITES Special Economic Zone', city: 'Coimbatore', lat: 11.0285, lng: 77.0260, highlight: 'Home to 80+ global IT MNCs and tech startups' },
+        { id: 'cbe-work-2', name: 'CHIL SEZ IT Park (Saravanampatti)', category: 'techpark', categoryLabel: 'IT & Software Park', city: 'Coimbatore', lat: 11.0850, lng: 76.9950, highlight: 'Cognizant, Bosch & tech companies hub' },
+        { id: 'cbe-park-1', name: 'Race Course Walking Track & Thomas Park', category: 'park', categoryLabel: 'Green Lung & Jogging Track', city: 'Coimbatore', lat: 11.0020, lng: 76.9750, highlight: '2.5 km landscaped jogging track and illuminated parks' },
+        { id: 'cbe-park-2', name: 'VOC Park & Botanical Gardens', category: 'park', categoryLabel: 'City Park & Recreation', city: 'Coimbatore', lat: 11.0095, lng: 76.9745, highlight: 'Green park, children play area and garden walks' },
+        { id: 'cbe-sup-1', name: 'Nilgiris 1905 Supermarket', category: 'supermarket', categoryLabel: 'Daily Groceries & Essentials', city: 'Coimbatore', lat: 11.0180, lng: 76.9820, highlight: 'Fresh dairy, organics, produce and imported groceries' },
+        { id: 'cbe-sup-2', name: 'Pazhamudir Nilayam & Supermarket', category: 'supermarket', categoryLabel: 'Fresh Fruits & Vegetables', city: 'Coimbatore', lat: 11.0220, lng: 76.9920, highlight: 'Farm-fresh fruits, vegetables, and daily staples' },
+
+        // Chennai
+        { id: 'chn-hosp-1', name: 'Apollo Hospitals Greams Road', category: 'hospital', categoryLabel: 'Multi-Specialty Hospital', city: 'Chennai', lat: 13.0604, lng: 80.2508, highlight: 'Internationally renowned quaternary healthcare' },
+        { id: 'chn-work-1', name: 'TIDEL Park Taramani OMR', category: 'techpark', categoryLabel: 'OMR IT Corridor', city: 'Chennai', lat: 12.9890, lng: 80.2483, highlight: 'Flagship IT tech park on Rajiv Gandhi Salai' },
+        { id: 'chn-mall-1', name: 'Express Avenue Mall', category: 'shopping', categoryLabel: 'Shopping & Entertainment', city: 'Chennai', lat: 13.0587, lng: 80.2641, highlight: 'Premium retail brands and EA cinemas' },
+        { id: 'chn-trans-1', name: 'Chennai Central Railway Station', category: 'transit', categoryLabel: 'Railway Terminus & Metro', city: 'Chennai', lat: 13.0827, lng: 80.2757, highlight: 'Main rail and metro interchange' },
+
+        // Bangalore
+        { id: 'blr-hosp-1', name: 'Manipal Hospital Old Airport Rd', category: 'hospital', categoryLabel: 'Super Specialty Hospital', city: 'Bangalore', lat: 12.9592, lng: 77.6534, highlight: 'Top multispecialty tertiary healthcare center' },
+        { id: 'blr-work-1', name: 'Manyata Tech Park', category: 'techpark', categoryLabel: 'IT & Software SEZ', city: 'Bangalore', lat: 13.0450, lng: 77.6200, highlight: 'Over 100,000 tech professionals' },
+        { id: 'blr-mall-1', name: 'Phoenix Marketcity Whitefield', category: 'shopping', categoryLabel: 'Shopping & Leisure Mall', city: 'Bangalore', lat: 12.9959, lng: 77.6963, highlight: 'Major shopping mall, PVR IMAX and restaurants' }
       ];
+
+      // Calculate dynamic distances from property's exact coordinates
+      let pois = landmarkBank.map(item => {
+        const dist = haversineDist(pLat, pLng, item.lat, item.lng);
+        const { direction, directionDegrees } = getDir(pLat, pLng, item.lat, item.lng);
+        const driveTime = Math.max(1, Math.round(dist * 2.2));
+        const walkTime = Math.max(1, Math.round(dist * 12));
+        return {
+          id: item.id,
+          name: item.name,
+          category: item.category,
+          categoryLabel: item.categoryLabel,
+          distanceKm: dist,
+          driveTimeMins: driveTime,
+          walkTimeMins: walkTime,
+          direction,
+          directionDegrees,
+          coordinates: { lat: item.lat, lng: item.lng },
+          highlight: item.highlight
+        };
+      });
+
+      // Filter by proximity (under 35km) or fallback to closest
+      const nearby = pois.filter(p => p.distanceKm <= 35).sort((a, b) => a.distanceKm - b.distanceKm);
+
+      if (nearby.length >= 6) {
+        pois = nearby;
+      } else {
+        // If property coordinates are elsewhere, synthesize localized realistic POIs around the property
+        const syntheticCategories = [
+          { name: `${locality} Multi-Specialty Medical Clinic`, category: 'hospital', categoryLabel: 'Emergency & Healthcare', offsetLat: 0.007, offsetLng: 0.005, highlight: '24/7 clinic, pharmacy, and urgent care center' },
+          { name: `${locality} International Public School`, category: 'school', categoryLabel: 'CBSE / ICSE School', offsetLat: -0.009, offsetLng: 0.004, highlight: 'Academics and sports academy' },
+          { name: `${locality} Metro & Express Transit Hub`, category: 'transit', categoryLabel: 'Public Rapid Transit', offsetLat: 0.004, offsetLng: -0.006, highlight: 'Direct bus and metro transit lines' },
+          { name: `${locality} Central Tech & Business Park`, category: 'techpark', categoryLabel: 'Corporate Office Complex', offsetLat: 0.012, offsetLng: 0.009, highlight: 'Modern tech workspace and co-working offices' },
+          { name: `${locality} Lifestyle Galleria & Cineplex`, category: 'shopping', categoryLabel: 'Retail & Multiplex', offsetLat: -0.006, offsetLng: -0.008, highlight: 'Fashion retail, food court, and multiplex theater' },
+          { name: `${locality} Nature Green Park & Walkway`, category: 'park', categoryLabel: 'Jogging Track & Gardens', offsetLat: 0.003, offsetLng: 0.004, highlight: 'Lush walking pathways and play areas' },
+          { name: `${locality} Fresh Daily Supermarket & Groceries`, category: 'supermarket', categoryLabel: 'Supermarket & Essentials', offsetLat: -0.003, offsetLng: 0.003, highlight: 'Organic produce, dairy, bakery, and groceries' }
+        ];
+
+        pois = syntheticCategories.map((cat, idx) => {
+          const lat = pLat + cat.offsetLat;
+          const lng = pLng + cat.offsetLng;
+          const dist = haversineDist(pLat, pLng, lat, lng);
+          const { direction, directionDegrees } = getDir(pLat, pLng, lat, lng);
+          return {
+            id: `poi-synth-${idx + 1}`,
+            name: cat.name,
+            category: cat.category,
+            categoryLabel: cat.categoryLabel,
+            distanceKm: dist,
+            driveTimeMins: Math.max(1, Math.round(dist * 2.2)),
+            walkTimeMins: Math.max(1, Math.round(dist * 12)),
+            direction,
+            directionDegrees,
+            coordinates: { lat, lng },
+            highlight: cat.highlight
+          };
+        });
+      }
 
       return {
         success: true,
         action,
         propertyId,
+        propertyCoordinates: { lat: pLat, lng: pLng },
         nearbyPlaces: pois
       };
     }
@@ -1365,17 +1350,20 @@ async function handleAction(action, payload = {}) {
       // Resolve propertyTitle from DB if not provided
       let resolvedTitle = visitData.propertyTitle;
       let resolvedLocality = visitData.propertyLocality;
-      if (!resolvedTitle && visitData.propertyId) {
+      let resolvedSellerId = visitData.sellerId;
+      if (visitData.propertyId) {
         const prop = await db.collection('properties').findOne({
           $or: [
             { id: visitData.propertyId },
             { propertyId: visitData.propertyId },
-            { _id: visitData.propertyId.length === 24 ? new ObjectId(visitData.propertyId) : null }
+            { slug: visitData.propertyId },
+            ...(visitData.propertyId.length === 24 ? [{ _id: new ObjectId(visitData.propertyId) }] : [])
           ].filter(q => q._id !== null || !q._id)
         });
         if (prop) {
-          resolvedTitle = prop.title || prop.propertyTitle || visitData.propertyId;
+          resolvedTitle = resolvedTitle || prop.title || prop.propertyTitle || visitData.propertyId;
           resolvedLocality = resolvedLocality || `${prop.locality || ''}, ${prop.city || ''}`.replace(/^, |, $/g, '');
+          resolvedSellerId = resolvedSellerId || prop.sellerId || prop.seller?.id || prop.sellerEmail || 'owner@havenmatch.ai';
         }
       }
 
@@ -1384,10 +1372,12 @@ async function handleAction(action, payload = {}) {
         propertyTitle: resolvedTitle || visitData.propertyId || 'Unknown Property',
         propertyLocality: resolvedLocality || visitData.propertyLocality || '',
         buyerName: visitData.buyerName || visitData.buyerId || 'Buyer',
-        sellerName: visitData.sellerName || visitData.sellerId || 'Seller',
+        sellerName: visitData.sellerName || resolvedSellerId || 'Seller',
+        sellerId: resolvedSellerId || visitData.sellerId || 'owner@havenmatch.ai',
         id: visitData.id || `vis-${Date.now()}`,
-        status: visitData.status || 'Scheduled',
-        createdAt: new Date()
+        status: visitData.status || 'REQUESTED',
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
       await db.collection('visit_requests').insertOne(doc);
       console.log(`[Visits] Visit scheduled for property: ${doc.propertyTitle} (${doc.propertyId}) | Buyer: ${doc.buyerName} | Date: ${doc.date} ${doc.timeSlot}`);
@@ -1395,8 +1385,9 @@ async function handleAction(action, payload = {}) {
     }
 
     case 'visits/list': {
-      const { userId, buyerId, sellerId } = payload;
+      const { userId, buyerId, sellerId, propertyId } = payload;
       const query = {};
+      if (propertyId) query.propertyId = propertyId;
       if (buyerId || userId) {
         query.$or = [
           { buyerId: buyerId || userId },
@@ -1406,7 +1397,12 @@ async function handleAction(action, payload = {}) {
       }
       if (sellerId) {
         query.$or = query.$or || [];
-        query.$or.push({ sellerId }, { sellerName: sellerId });
+        query.$or.push(
+          { sellerId },
+          { sellerName: sellerId },
+          { 'seller.id': sellerId },
+          { 'seller.email': sellerId }
+        );
       }
       const visits = await db
         .collection('visit_requests')
@@ -1419,10 +1415,20 @@ async function handleAction(action, payload = {}) {
     case 'visits/updateStatus': {
       const { visitId, status } = payload;
       if (!visitId) throw new Error('Missing visitId for visits/updateStatus');
-      const validStatuses = ['Pending', 'Confirmed', 'Scheduled', 'Completed', 'Cancelled'];
-      const newStatus = validStatuses.includes(status) ? status : 'Confirmed';
+      const normalizedStatus = String(status).toUpperCase();
+      const statusMap = {
+        'CONFIRMED': 'CONFIRMED',
+        'COMPLETED': 'COMPLETED',
+        'CANCELLED': 'CANCELLED',
+        'CANCELED': 'CANCELLED',
+        'REJECTED': 'REJECTED',
+        'REQUESTED': 'REQUESTED',
+        'SCHEDULED': 'CONFIRMED',
+        'PENDING': 'REQUESTED'
+      };
+      const newStatus = statusMap[normalizedStatus] || status || 'CONFIRMED';
       const updateResult = await db.collection('visit_requests').findOneAndUpdate(
-        { $or: [{ id: visitId }, { _id: visitId.length === 24 ? new ObjectId(visitId) : null }].filter(q => q._id !== null || !q._id) },
+        { $or: [{ id: visitId }, { visitId: visitId }, ...(visitId.length === 24 ? [{ _id: new ObjectId(visitId) }] : [])] },
         { $set: { status: newStatus, updatedAt: new Date() } },
         { returnDocument: 'after' }
       );
@@ -1434,12 +1440,12 @@ async function handleAction(action, payload = {}) {
       const { visitId } = payload;
       if (!visitId) throw new Error('Missing visitId for visits/cancel');
       const cancelResult = await db.collection('visit_requests').findOneAndUpdate(
-        { $or: [{ id: visitId }, { _id: visitId.length === 24 ? new ObjectId(visitId) : null }].filter(q => q._id !== null || !q._id) },
-        { $set: { status: 'Cancelled', cancelledAt: new Date() } },
+        { $or: [{ id: visitId }, { visitId: visitId }, ...(visitId.length === 24 ? [{ _id: new ObjectId(visitId) }] : [])] },
+        { $set: { status: 'CANCELLED', cancelledAt: new Date(), updatedAt: new Date() } },
         { returnDocument: 'after' }
       );
       console.log(`[Visits] Visit cancelled: ${visitId}`);
-      return { success: true, action, visit: cancelResult || { id: visitId, status: 'Cancelled' } };
+      return { success: true, action, visit: cancelResult || { id: visitId, status: 'CANCELLED' } };
     }
 
     // 8. Shortlists

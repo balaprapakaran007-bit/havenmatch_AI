@@ -225,8 +225,8 @@ export interface Visit {
   timeSlot: string;
   buyerName: string;
   buyerPhone: string;
-  sellerName: string;
-  status: 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled';
+  sellerName?: string;
+  status: 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled' | 'REQUESTED' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED';
   notes?: string;
   createdAt: string;
 }
