@@ -4,7 +4,7 @@ import { propertyService } from '../services/propertyService';
 import { useLifestyle } from '../context/LifestyleContext';
 import { useApp } from '../context/AppContext';
 import { PropertyCard } from '../components/property/PropertyCard';
-import { POPULAR_INDIAN_CITIES, INITIAL_PROPERTIES } from '../data/mockData';
+import { POPULAR_INDIAN_CITIES } from '../data/mockData';
 import { 
   SlidersHorizontal, 
   Sparkles, 
@@ -12,10 +12,10 @@ import {
   MapPin, 
   ArrowUpDown, 
   X, 
-  RotateCcw,
-  Check,
-  Building2,
-  Filter
+  RotateCcw, 
+  Check, 
+  Building2, 
+  Filter 
 } from 'lucide-react';
 
 export const DiscoverView: React.FC = () => {
@@ -32,7 +32,6 @@ export const DiscoverView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
-    // Synchronize intent if requested
     const filters = { ...requirements };
     if (selectedIntent !== 'ALL') {
       filters.intent = selectedIntent;
@@ -44,12 +43,12 @@ export const DiscoverView: React.FC = () => {
 
   // Compute property counts per city for quick badge
   const cityCounts = useMemo(() => {
-    const counts: Record<string, number> = { 'All Cities': INITIAL_PROPERTIES.length };
-    INITIAL_PROPERTIES.forEach((p) => {
+    const counts: Record<string, number> = { 'All Cities': properties.length };
+    properties.forEach((p) => {
       counts[p.city] = (counts[p.city] || 0) + 1;
     });
     return counts;
-  }, []);
+  }, [properties]);
 
   // Handle city selection
   const handleCitySelect = (cityName: string) => {
@@ -181,7 +180,7 @@ export const DiscoverView: React.FC = () => {
               activeCityName === 'All Cities' ? 'text-orange-600 underline' : 'text-slate-400 hover:text-slate-700'
             }`}
           >
-            View All ({INITIAL_PROPERTIES.length})
+            View All ({properties.length})
           </button>
         </div>
 
@@ -367,7 +366,7 @@ export const DiscoverView: React.FC = () => {
                   onChange={(e) => handleCitySelect(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl p-2.5 focus:outline-orange-500"
                 >
-                  <option value="All Cities">🇮🇳 All Cities in India ({INITIAL_PROPERTIES.length})</option>
+                  <option value="All Cities">🇮🇳 All Cities in India ({properties.length})</option>
                   {POPULAR_INDIAN_CITIES.map((c) => (
                     <option key={c.name} value={c.name}>
                       {c.name}, {c.state} ({cityCounts[c.name] || 0} homes)

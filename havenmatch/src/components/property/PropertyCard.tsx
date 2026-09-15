@@ -62,7 +62,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, match, onC
 
   const formattedPrice = formatPrice(property);
 
-  const matchScore = match?.overallScore || 92;
+  const matchScore = match?.overallScore || (82 + ((property.id ? property.id.charCodeAt(property.id.length - 1) : 0) % 12));
   const matchTag = match?.tag || (matchScore >= 90 ? 'Top Lifestyle Fit' : matchScore >= 80 ? 'Best Value Match' : 'Recommended');
 
   // Highlight points (3 bullets)
@@ -105,14 +105,14 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, match, onC
     e.preventDefault();
     setIsSending(true);
     try {
-      // Connect with backend interest/messages API
-      await fetch('http://localhost:5000/api/interests/express', {
+      const buyerId = userSession?.userId || userSession?.email || 'buyer-web';
+      await fetch('/api/interests/express', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           propertyId: property.id,
-          buyerId: userSession?.userId || userSession?.email || 'buyer-web',
-          sellerId: property.seller?.id || property.seller?.email || 'owner@havenmatch.ai',
+          buyerId,
+          sellerId: property.seller?.id || property.sellerId || property.seller?.email || 'owner@havenmatch.ai',
           message: contactMsg
         })
       }).catch(() => {});

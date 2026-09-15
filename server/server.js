@@ -299,125 +299,191 @@ async function initializeDatabase() {
   }
 }
 
+// ─── HELPER: Property Normalizer ───────────────────────────────────────────
+function normalizeProperty(p) {
+  if (!p) return null;
+  const id = p.id || p.propertyId || String(p._id);
+  const isRent = (
+    p.intent === 'RENT' ||
+    p.intent === 'RENT_OUT' ||
+    p.listingType === 'RENT' ||
+    (p.price > 0 && p.price < 100000 && !p.intent?.includes('BUY') && !p.intent?.includes('SELL'))
+  );
+  const intent = isRent ? 'RENT' : 'BUY';
+  const price = Number(p.price) || 0;
+  let priceDisplay = p.priceDisplay;
+  if (!priceDisplay) {
+    if (price === 0) priceDisplay = 'Contact for Price';
+    else if (isRent) priceDisplay = `₹${price.toLocaleString('en-IN')}/mo`;
+    else if (price >= 10000000) priceDisplay = `₹${(price / 10000000).toFixed(2)} Cr`;
+    else priceDisplay = `₹${(price / 100000).toFixed(0)} Lakhs`;
+  }
+
+  const sellerId = p.sellerId || p.seller?.id || p.seller?.userId || p.userId || '';
+  const sellerEmail = p.sellerEmail || p.seller?.email || p.userEmail || '';
+  const sellerName = p.sellerName || p.seller?.name || 'Verified Owner';
+  const sellerPhone = p.sellerPhone || p.seller?.phone || '';
+
+  const images = (Array.isArray(p.images) && p.images.length > 0)
+    ? p.images
+    : (p.coverImage ? [p.coverImage] : ['https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80']);
+
+  return {
+    ...p,
+    id,
+    propertyId: id,
+    title: p.title || 'Residential Property',
+    propertyType: p.propertyType || p.type || 'Apartment',
+    bhk: Number(p.bhk) || 2,
+    city: p.city || 'Coimbatore',
+    locality: p.locality || 'Prime Location',
+    intent,
+    listingType: intent,
+    price,
+    priceDisplay,
+    sellerId,
+    ownerId: sellerId,
+    sellerEmail,
+    seller: {
+      id: sellerId,
+      name: sellerName,
+      email: sellerEmail,
+      phone: sellerPhone,
+      role: p.seller?.role || p.ownerType || 'Individual Owner',
+      verified: p.seller?.verified ?? true,
+      responseRate: p.seller?.responseRate || '98%'
+    },
+    images,
+    primaryImage: images[0],
+    coverImage: p.coverImage || images[0]
+  };
+}
+
 // ─── LIFESTYLE MATCHING ENGINE ──────────────────────────────────────────────
-function calculateLifestyleMatch(property, buyer) {
+function calculateLifestyleMatch(rawProp, buyer) {
+  const property = normalizeProperty(rawProp);
   const req = buyer || {};
   const life = buyer?.lifestyle || {};
   const priorities = life.priorities || {};
 
   const propCity = (property.city || '').toLowerCase();
   const propLocality = (property.locality || '').toLowerCase();
+  const reqCity = (req.city && req.city !== 'All Cities') ? req.city.toLowerCase() : '';
 
-  // 1. Budget Fit (out of 25)
-  let budgetScore = 22;
+  const whyReasons = [];
+  const tradeOffs = [];
+
+  // 1. Intent / Listing Type check (out of 20)
+  let intentScore = 15;
+  if (req.intent) {
+    if (property.intent === req.intent || property.listingType === req.intent) {
+      intentScore = 20;
+      whyReasons.push(`Matches your intention to ${req.intent}`);
+    } else {
+      intentScore = 5;
+      tradeOffs.push(`Property is listed for ${property.intent}, while you selected ${req.intent}`);
+    }
+  }
+
+  // 2. Budget Fit (out of 25)
+  let budgetScore = 20;
   if (req.budgetMax && req.budgetMax > 0) {
     if (property.price <= req.budgetMax) {
       budgetScore = 25;
+      whyReasons.push(`Well within budget at ${property.priceDisplay}`);
     } else if (property.price <= req.budgetMax * 1.1) {
-      budgetScore = 18;
-    } else {
+      budgetScore = 16;
+      tradeOffs.push(`Slightly above preferred budget target (${property.priceDisplay})`);
+    } else if (property.price <= req.budgetMax * 1.3) {
       budgetScore = 10;
+      tradeOffs.push(`Priced at ${property.priceDisplay}, exceeding max budget`);
+    } else {
+      budgetScore = 5;
+      tradeOffs.push(`Significantly exceeds budget ceiling`);
     }
   }
 
-  // 2. Property Fit (out of 20)
-  let propScore = 17;
+  // 3. Location & Locality Fit (out of 25)
+  let locScore = 18;
+  if (reqCity) {
+    if (propCity === reqCity) {
+      locScore = 22;
+      whyReasons.push(`Located in your preferred city of ${property.city}`);
+    } else {
+      locScore = 8;
+      tradeOffs.push(`Located in ${property.city} instead of ${req.city}`);
+    }
+  }
+  if (req.preferredLocalities && Array.isArray(req.preferredLocalities) && req.preferredLocalities.length > 0) {
+    const locMatch = req.preferredLocalities.some(l => l && (propLocality.includes(l.toLowerCase()) || l.toLowerCase().includes(propLocality)));
+    if (locMatch) {
+      locScore = Math.min(25, locScore + 3);
+      whyReasons.push(`Prime location in ${property.locality}`);
+    }
+  }
+
+  // 4. Property Specs & BHK (out of 15)
+  let specScore = 12;
   if (req.bhk && Array.isArray(req.bhk) && req.bhk.length > 0) {
-    if (req.bhk.includes(property.bhk)) propScore += 2;
-  }
-  if (property.vastuCompliant && req.vastuRequired) propScore = Math.min(20, propScore + 1);
-  if (req.parkingRequired && property.parking && property.parking !== 'None') {
-    propScore = Math.min(20, propScore + 1);
-  }
-
-  // 3. Location & Commute Fit (out of 30)
-  let locScore = 25;
-  if (req.city && propCity === req.city.toLowerCase()) locScore += 2;
-  if (
-    req.preferredLocalities &&
-    Array.isArray(req.preferredLocalities) &&
-    req.preferredLocalities.some(
-      (l) => l && propLocality.includes(l.toLowerCase())
-    )
-  ) {
-    locScore += 3;
-  }
-  locScore = Math.min(30, locScore);
-
-  // 4. Lifestyle & Amenity Fit (out of 25)
-  let lifeScore = 20;
-  if (priorities.healthcare === 'HIGH') {
-    if (propLocality.includes('peelamedu') || (property.nearbyPlaces && property.nearbyPlaces.some(p => p.category === 'hospital' && p.distanceKm <= 3))) {
-      lifeScore += 2;
+    if (req.bhk.some(b => b === property.bhk || (b === 4 && property.bhk >= 4))) {
+      specScore = 15;
+      whyReasons.push(`Ideal ${property.bhk} BHK layout matching your requirement`);
+    } else {
+      specScore = 7;
+      tradeOffs.push(`${property.bhk} BHK layout differs from requested bedrooms`);
     }
   }
-  if (priorities.commute === 'HIGH') lifeScore += 1;
+  if (req.propertyTypes && Array.isArray(req.propertyTypes) && req.propertyTypes.length > 0) {
+    if (req.propertyTypes.includes(property.propertyType)) {
+      whyReasons.push(`Preferred property type: ${property.propertyType}`);
+    }
+  }
 
-  // New signals: Noise Level
+  // 5. Lifestyle, Noise, Water & Amenities (out of 15)
+  let lifeScore = 10;
   if (property.noiseLevel === 'LOW' && (priorities.quietness === 'HIGH' || life.atmospherePreference === 'Peaceful & Quiet')) {
     lifeScore += 2;
+    whyReasons.push('Quiet residential zone with minimal noise');
   }
-
-  // Pet friendly
+  if (property.waterSupply && String(property.waterSupply).toLowerCase().includes('siruvani')) {
+    lifeScore += 2;
+    whyReasons.push('Direct 24/7 Siruvani drinking water supply');
+  }
   if (life.hasPets && property.petFriendly) {
     lifeScore += 1;
+    whyReasons.push('Pet-friendly community environment');
   }
-
-  // Suitable for elderly / kids
-  if (life.hasElderlyFamily && (property.suitableFor?.includes('Senior Citizens') || property.suitableFor?.includes('Families') || property.floor <= 2 || property.amenities?.includes('Lift Access'))) {
+  if (property.parking && property.parking !== 'None') {
     lifeScore += 1;
+    whyReasons.push(`Dedicated parking: ${property.parking}`);
   }
+  lifeScore = Math.min(15, lifeScore);
 
-  lifeScore = Math.min(25, lifeScore);
+  const rawScore = intentScore + budgetScore + locScore + specScore + lifeScore;
+  const totalScore = Math.min(98, Math.max(45, Math.round(rawScore)));
 
-  const totalScore = Math.min(100, budgetScore + propScore + locScore + lifeScore);
-
-  const whyReasons = [
-    `Located in ${property.locality || 'prime area'}, within prime commute target`,
-    `Budget fit: priced at ${property.priceDisplay || 'fair market value'} within your ceiling`,
-    `${property.bhk || 2} BHK layout matching your space requirement with ${property.facing || 'East'} facing`
-  ];
-
-  if (property.waterSupply && String(property.waterSupply).toLowerCase().includes('siruvani')) {
-    whyReasons.push('Verified Siruvani drinking water connection');
-  }
-
-  if (property.noiseLevel === 'LOW') {
-    whyReasons.push('Quiet residential zone with low ambient noise');
-  }
-
-  if (property.petFriendly) {
-    whyReasons.push('Pet-friendly community & building guidelines');
-  }
-
-  const tradeOffs = [];
-  if (property.floor > 3 && Array.isArray(property.amenities) && !property.amenities.includes('Lift Access') && !property.amenities.includes('Lift')) {
-    tradeOffs.push('Higher floor with no private elevator');
-  }
-  if (property.price > (req.budgetMax || 10000000) * 0.95) {
-    tradeOffs.push('Near the upper limit of your budget ceiling');
-  }
-  if (property.noiseLevel === 'HIGH') {
-    tradeOffs.push('High traffic / bustling corridor during peak daytime hours');
+  if (whyReasons.length === 0) {
+    whyReasons.push(`Priced at ${property.priceDisplay} in ${property.locality || property.city}`);
   }
 
   return {
-    propertyId: property.propertyId || property.id || String(property._id),
+    propertyId: property.id,
     title: property.title || 'Featured Property',
-    price: property.price || 0,
-    city: property.city || 'Coimbatore',
-    locality: property.locality || '',
-    bedrooms: property.bhk || property.bedrooms || 2,
+    price: property.price,
+    city: property.city,
+    locality: property.locality,
+    bedrooms: property.bhk || 2,
     propertyType: property.propertyType || 'Apartment',
     matchScore: totalScore,
     scoreBreakdown: {
       budget: budgetScore,
-      property: propScore,
+      property: specScore + intentScore,
       location: locScore,
       lifestyle: lifeScore
     },
-    whyThisProperty: whyReasons,
-    tradeOffs: tradeOffs,
+    whyThisProperty: whyReasons.slice(0, 4),
+    tradeOffs: tradeOffs.slice(0, 3),
+    explanation: `${totalScore}% lifestyle match based on your preferences for ${property.locality || property.city}.`,
     property: property
   };
 }
@@ -859,24 +925,56 @@ async function handleAction(action, payload = {}) {
 
     // 3. Property List (Queries MongoDB Atlas)
     case 'properties/list': {
-      const { filters } = payload;
+      const filters = payload.filters || payload;
       let query = {};
+
+      if (filters?.sellerId || filters?.ownerId) {
+        const sId = filters.sellerId || filters.ownerId;
+        const sEmail = filters.sellerEmail || filters.userEmail;
+        query.$or = [
+          { sellerId: sId },
+          { 'seller.id': sId },
+          { userId: sId },
+          ...(sEmail ? [{ sellerEmail: sEmail }, { 'seller.email': sEmail }] : [])
+        ];
+      }
 
       if (filters?.city && filters.city !== 'All Cities') {
         query.city = new RegExp(`^${filters.city}$`, 'i');
       }
+
       if (filters?.intent) {
-        query.intent = filters.intent;
+        const reqIntent = filters.intent.toUpperCase();
+        if (reqIntent === 'RENT') {
+          query.$or = [
+            { intent: 'RENT' },
+            { intent: 'RENT_OUT' },
+            { listingType: 'RENT' }
+          ];
+        } else if (reqIntent === 'BUY') {
+          query.$or = [
+            { intent: 'BUY' },
+            { intent: 'SELL' },
+            { listingType: 'BUY' }
+          ];
+        }
       }
-      if (filters?.budgetMax && filters.budgetMax > 0) {
+
+      if (filters?.budgetMax && Number(filters.budgetMax) > 0) {
         query.price = { $lte: Number(filters.budgetMax) };
       }
 
-      const properties = await db
+      if (filters?.bhk && Array.isArray(filters.bhk) && filters.bhk.length > 0) {
+        query.bhk = { $in: filters.bhk };
+      }
+
+      const rawProperties = await db
         .collection('properties')
         .find(query)
         .sort({ createdAt: -1 })
         .toArray();
+
+      const properties = rawProperties.map(normalizeProperty);
 
       return {
         success: true,
@@ -891,15 +989,23 @@ async function handleAction(action, payload = {}) {
       const { propertyId } = payload;
       if (!propertyId) throw new Error('Missing propertyId');
 
-      let property = await db.collection('properties').findOne({ id: propertyId });
+      let property = await db.collection('properties').findOne({
+        $or: [
+          { id: propertyId },
+          { propertyId: propertyId },
+          { slug: propertyId },
+          ...(String(propertyId).length === 24 ? [{ _id: new ObjectId(String(propertyId)) }] : [])
+        ]
+      });
+
       if (!property) {
-        property = await db.collection('properties').findOne({ slug: propertyId });
+        throw new Error(`Property not found with ID: ${propertyId}`);
       }
 
       return {
         success: true,
         action,
-        property
+        property: normalizeProperty(property)
       };
     }
 
@@ -1180,54 +1286,154 @@ async function handleAction(action, payload = {}) {
     }
 
     // 8. Shortlists
-    case 'shortlists/add': {
-      const { userId, propertyId } = payload;
+    case 'shortlists/add':
+    case 'saved/add': {
+      const userId = payload.userId || payload.buyerId || payload.buyer_id || payload.user?.id || payload.user?.userId;
+      const propertyId = payload.propertyId || payload.property_id || payload.id;
+      if (!userId || !propertyId) throw new Error('Missing userId or propertyId for shortlists/add');
+      
       await db.collection('shortlists').updateOne(
-        { userId, propertyId },
-        { $set: { userId, propertyId, updatedAt: new Date() } },
+        {
+          $or: [
+            { userId, propertyId },
+            { buyer_id: userId, property_id: propertyId },
+            { buyerId: userId, propertyId: propertyId }
+          ]
+        },
+        {
+          $set: {
+            userId,
+            buyerId: userId,
+            buyer_id: userId,
+            propertyId,
+            property_id: propertyId,
+            id: propertyId,
+            updatedAt: new Date(),
+            createdAt: new Date()
+          }
+        },
         { upsert: true }
       );
-      return { success: true, action };
+      return { success: true, action, message: 'Property saved to shortlists' };
     }
 
-    case 'shortlists/remove': {
-      const { userId, propertyId } = payload;
-      await db.collection('shortlists').deleteOne({ userId, propertyId });
-      return { success: true, action };
+    case 'shortlists/remove':
+    case 'saved/remove': {
+      const userId = payload.userId || payload.buyerId || payload.buyer_id || payload.user?.id || payload.user?.userId;
+      const propertyId = payload.propertyId || payload.property_id || payload.id;
+      if (!propertyId) throw new Error('Missing propertyId for shortlists/remove');
+      const query = userId
+        ? {
+            $and: [
+              { $or: [{ userId }, { buyerId: userId }, { buyer_id: userId }] },
+              { $or: [{ propertyId }, { property_id: propertyId }, { id: propertyId }] }
+            ]
+          }
+        : { $or: [{ propertyId }, { property_id: propertyId }, { id: propertyId }] };
+      await db.collection('shortlists').deleteMany(query);
+      return { success: true, action, message: 'Property removed from shortlists' };
     }
 
-    case 'shortlists/list': {
-      const { userId } = payload;
-      const query = userId ? { userId } : {};
-      const shortlists = await db.collection('shortlists').find(query).toArray();
-      return { success: true, action, shortlists };
+    case 'shortlists/list':
+    case 'saved/list': {
+      const userId = payload.userId || payload.buyerId || payload.buyer_id || payload.user?.id || payload.user?.userId;
+      const query = userId
+        ? { $or: [{ userId }, { buyerId: userId }, { buyer_id: userId }] }
+        : {};
+      const shortlists = await db.collection('shortlists').find(query).sort({ updatedAt: -1 }).toArray();
+      const propertyIds = shortlists.map(s => s.propertyId || s.property_id || s.id).filter(Boolean);
+
+      let properties = [];
+      if (propertyIds.length > 0) {
+        const rawProps = await db.collection('properties').find({
+          $or: [
+            { id: { $in: propertyIds } },
+            { propertyId: { $in: propertyIds } },
+            ...(propertyIds.filter(id => id.length === 24).map(id => ({ _id: new ObjectId(id) })))
+          ]
+        }).toArray();
+        properties = rawProps.map(normalizeProperty);
+      }
+
+      return {
+        success: true,
+        action,
+        total: shortlists.length,
+        shortlists,
+        properties
+      };
     }
 
     // 9. Interests
     case 'interests/create':
     case 'interests/express': {
       const { buyerId, propertyId, sellerId, message } = payload;
+      if (!propertyId) throw new Error('Missing propertyId for interest expression');
+      const cleanBuyerId = buyerId || payload.userId || 'guest';
+
+      // Check if interest already exists
+      const existingInterest = await db.collection('interests').findOne({
+        propertyId,
+        buyerId: cleanBuyerId
+      });
+
+      if (existingInterest) {
+        return {
+          success: true,
+          action,
+          interestId: existingInterest.interestId || String(existingInterest._id),
+          interest: existingInterest,
+          message: 'Interest sent successfully.'
+        };
+      }
+
+      // Resolve real sellerId from property in database if not provided
+      let targetSellerId = sellerId;
+      if (!targetSellerId || targetSellerId === 'owner@havenmatch.ai') {
+        const prop = await db.collection('properties').findOne({
+          $or: [
+            { id: propertyId },
+            { propertyId: propertyId },
+            { slug: propertyId },
+            ...(String(propertyId).length === 24 ? [{ _id: new ObjectId(String(propertyId)) }] : [])
+          ]
+        });
+        if (prop) {
+          targetSellerId = prop.sellerId || prop.seller?.id || prop.sellerEmail || prop.seller?.email || 'owner@havenmatch.ai';
+        }
+      }
+
       const interestId = `int-${Date.now()}`;
       const doc = {
         interestId,
-        buyerId: buyerId || payload.userId,
+        buyerId: cleanBuyerId,
         propertyId,
-        sellerId: sellerId || 'owner@havenmatch.ai',
-        message: message || '',
+        sellerId: targetSellerId || 'owner@havenmatch.ai',
+        message: message || 'Hi, I am interested in this property on HavenMatch AI.',
         status: 'PENDING',
-        createdAt: new Date()
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
       await db.collection('interests').insertOne(doc);
-      return { success: true, action, interestId, interest: doc };
+      console.log(`[Interests] Expressed interest: ${interestId} | Property: ${propertyId} | Buyer: ${cleanBuyerId} | Seller: ${targetSellerId}`);
+
+      return {
+        success: true,
+        action,
+        interestId,
+        interest: doc,
+        message: 'Interest sent successfully.'
+      };
     }
 
     case 'interests/list': {
-      const { userId, buyerId, sellerId } = payload;
+      const { userId, buyerId, sellerId, propertyId } = payload;
       const query = {};
+      if (propertyId) query.propertyId = propertyId;
       if (buyerId || userId) query.buyerId = buyerId || userId;
       if (sellerId) query.sellerId = sellerId;
       const interests = await db.collection('interests').find(query).sort({ createdAt: -1 }).toArray();
-      return { success: true, action, interests };
+      return { success: true, action, total: interests.length, interests };
     }
 
     // 10. Direct Connections
@@ -1462,14 +1668,12 @@ app.post('/webhook-test/havenmatch/match', async (req, res) => {
 });
 
 // 3. REST API routes
-app.post('/api/:category/:action', async (req, res) => {
+app.get('/api/properties', async (req, res) => {
   try {
-    const action = `${req.params.category}/${req.params.action}`;
-    const result = await handleAction(action, req.body);
+    const result = await handleAction('properties/list', { filters: req.query });
     res.json(result);
   } catch (err) {
-    const status = err.statusCode || (err.message?.includes('403') ? 403 : 400);
-    res.status(status).json({ success: false, error: err.message });
+    res.status(400).json({ success: false, error: err.message });
   }
 });
 
@@ -1487,7 +1691,106 @@ app.get('/api/properties/:id', async (req, res) => {
     const result = await handleAction('properties/get', { propertyId: req.params.id });
     res.json(result);
   } catch (err) {
+    const status = err.message?.includes('not found') ? 404 : 400;
+    res.status(status).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/properties', async (req, res) => {
+  try {
+    const result = await handleAction('properties/create', req.body);
+    res.json(result);
+  } catch (err) {
     res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/properties/:id', async (req, res) => {
+  try {
+    const result = await handleAction('properties/update', { ...req.body, propertyId: req.params.id });
+    res.json(result);
+  } catch (err) {
+    const status = err.statusCode || (err.message?.includes('403') ? 403 : 400);
+    res.status(status).json({ success: false, error: err.message });
+  }
+});
+
+app.patch('/api/properties/:id', async (req, res) => {
+  try {
+    const result = await handleAction('properties/update', { ...req.body, propertyId: req.params.id });
+    res.json(result);
+  } catch (err) {
+    const status = err.statusCode || (err.message?.includes('403') ? 403 : 400);
+    res.status(status).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/properties/:id', async (req, res) => {
+  try {
+    const result = await handleAction('properties/delete', { ...req.body, propertyId: req.params.id });
+    res.json(result);
+  } catch (err) {
+    const status = err.statusCode || (err.message?.includes('403') ? 403 : 400);
+    res.status(status).json({ success: false, error: err.message });
+  }
+});
+
+// REST Saved / Shortlist Endpoints
+app.get('/api/saved', async (req, res) => {
+  try {
+    const result = await handleAction('shortlists/list', req.query);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/saved', async (req, res) => {
+  try {
+    const result = await handleAction('shortlists/add', req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/saved/:id', async (req, res) => {
+  try {
+    const result = await handleAction('shortlists/remove', { ...req.body, propertyId: req.params.id });
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// REST Interest & Visit Endpoints
+app.post('/api/interest', async (req, res) => {
+  try {
+    const result = await handleAction('interests/create', req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/visits', async (req, res) => {
+  try {
+    const result = await handleAction('visits/schedule', req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Generic Category / Action Router
+app.post('/api/:category/:action', async (req, res) => {
+  try {
+    const action = `${req.params.category}/${req.params.action}`;
+    const result = await handleAction(action, req.body);
+    res.json(result);
+  } catch (err) {
+    const status = err.statusCode || (err.message?.includes('403') ? 403 : 400);
+    res.status(status).json({ success: false, error: err.message });
   }
 });
 

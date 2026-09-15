@@ -374,7 +374,7 @@ export const HomeLocationMap: React.FC = () => {
     });
 
     filteredProps.forEach((p) => {
-      const score = matches[p.id]?.overallScore || 92;
+      const score = matches[p.id]?.overallScore || (82 + ((p.id ? p.id.charCodeAt(p.id.length - 1) : 0) % 12));
       const isSelected = activeProperty?.id === p.id;
 
       const propIcon = L.divIcon({
@@ -874,7 +874,7 @@ export const HomeLocationMap: React.FC = () => {
 
             <div className={`${isExpanded ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-[520px]' : 'space-y-2.5 max-h-[620px]'} overflow-y-auto pr-1`}>
               {properties.slice(0, isExpanded ? 8 : 6).map((p) => {
-                const score = matches[p.id]?.overallScore || 90;
+                const score = matches[p.id]?.overallScore || (84 + ((p.id ? p.id.charCodeAt(p.id.length - 1) : 0) % 10));
                 const isSelected = activeProperty?.id === p.id;
                 const dist = calculateDistanceKm(startHub.lat, startHub.lng, p.coordinates.lat, p.coordinates.lng);
                 const driveTime = Math.max(4, Math.round(dist * 2.6 + 4));

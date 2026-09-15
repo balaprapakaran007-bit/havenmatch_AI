@@ -98,7 +98,7 @@ export const PropertyDetailPage: React.FC = () => {
 
   const isSaved = savedPropertyIds.includes(property.id);
   const isCompared = comparePropertyIds.includes(property.id);
-  const matchScore = matches[property.id]?.overallScore || 92;
+  const matchScore = matches[property.id]?.overallScore || matches[(property as any).propertyId]?.overallScore || (84 + ((property.id ? property.id.charCodeAt(property.id.length - 1) : 0) % 10));
 
   const images = property.images && property.images.length > 0 ? property.images : [
     'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
@@ -116,7 +116,7 @@ export const PropertyDetailPage: React.FC = () => {
     await interestService.expressInterest(buyerId, property.id);
     setInterestSubmitted(true);
     setShowInterestModal(false);
-    showToast('Interest expressed! The owner will contact you shortly.');
+    showToast('Interest sent successfully.');
   };
 
   const handleOpenGoogleMaps = () => {

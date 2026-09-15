@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useLifestyle } from '../context/LifestyleContext';
 import { PropertyCard } from '../components/property/PropertyCard';
 import { HomeLocationMap } from '../components/home/HomeLocationMap';
-import { INITIAL_PROPERTIES } from '../data/mockData';
+import { propertyService } from '../services/propertyService';
+import { Property } from '../types';
 import { 
   Sparkles, 
   Search, 
@@ -26,6 +27,13 @@ export const LandingPage: React.FC = () => {
   const [selectedBhk, setSelectedBhk] = useState<number>(2);
   const [selectedLocality, setSelectedLocality] = useState<string>('All Cities');
   const [budgetCap, setBudgetCap] = useState<number>(7500000);
+  const [featuredProperties, setFeaturedProperties] = useState<Property[]>([]);
+
+  useEffect(() => {
+    propertyService.getProperties().then((props) => {
+      setFeaturedProperties(props.slice(0, 6));
+    }).catch(() => {});
+  }, []);
 
   const localityCityMap: Record<string, string> = {
     'Indiranagar': 'Bengaluru',
@@ -77,8 +85,6 @@ export const LandingPage: React.FC = () => {
     showToast(`Discovering lifestyle homes in ${selectedLocality === 'All Cities' ? 'India' : selectedLocality}...`);
     setActiveView('discover');
   };
-
-  const featuredProperties = INITIAL_PROPERTIES.slice(0, 6);
 
   return (
     <div className="space-y-12 sm:space-y-20">

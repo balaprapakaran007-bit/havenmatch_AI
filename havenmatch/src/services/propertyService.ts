@@ -126,14 +126,28 @@ class PropertyService {
     if (!requirements) return properties;
     let filtered = [...properties];
 
-    const req = requirements as BuyerRequirements;
+    const req = requirements as (BuyerRequirements & PropertyFilters);
+    if (req.intent) {
+      const targetIntent = req.intent.toUpperCase();
+      filtered = filtered.filter(p => {
+        const pIntent = (p.intent || p.listingType || (p.price < 100000 ? 'RENT' : 'BUY')).toUpperCase();
+        if (targetIntent === 'BUY') {
+          return pIntent === 'BUY' || pIntent === 'SELL';
+        }
+        if (targetIntent === 'RENT') {
+          return pIntent === 'RENT' || pIntent === 'RENT_OUT';
+        }
+        return true;
+      });
+    }
+
     if (req.city && req.city !== 'All Cities') {
       filtered = filtered.filter(p => p.city?.toLowerCase() === req.city.toLowerCase());
     }
     if (req.bhk?.length) {
       filtered = filtered.filter(p => req.bhk.some(b => b === p.bhk || (b === 4 && p.bhk >= 4)));
     }
-    if (req.budgetMax) {
+    if (req.budgetMax && req.budgetMax > 0) {
       filtered = filtered.filter(p => p.price <= req.budgetMax);
     }
 

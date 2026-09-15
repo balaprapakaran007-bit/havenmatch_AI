@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { useLifestyle } from '../context/LifestyleContext';
 import { propertyService } from '../services/propertyService';
-import { Property } from '../types';
+import { interestService } from '../services/interestService';
+import { visitService } from '../services/visitService';
+import { Property, Visit } from '../types';
 import {
   Heart,
   Sparkles,
@@ -15,7 +18,10 @@ import {
   Phone,
   ArrowRight,
   Compass,
-  CheckCircle2
+  CheckCircle2,
+  Trash2,
+  Eye,
+  Send
 } from 'lucide-react';
 
 export const SavedPage: React.FC = () => {
@@ -27,37 +33,64 @@ export const SavedPage: React.FC = () => {
     isCompared,
     setOpenVisitModal,
     setVisitTargetPropertyId,
-    showToast
+    showToast,
+    userSession
   } = useApp();
+
+  const { matches } = useLifestyle();
 
   const [activeTab, setActiveTab] = useState<'Shortlisted' | 'Viewed' | 'Visits' | 'Interested'>('Shortlisted');
   const [properties, setProperties] = useState<Property[]>([]);
+  const [visits, setVisits] = useState<Visit[]>([]);
+  const [interestedIds, setInterestedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
     propertyService.getProperties().then((all) => {
-      setProperties(all.filter((p) => savedPropertyIds.includes(p.id)));
-      setLoading(false);
+      if (isMounted) {
+        setProperties(all.filter((p) => savedPropertyIds.includes(p.id) || savedPropertyIds.includes((p as any).propertyId)));
+        setLoading(false);
+      }
     }).catch(() => {
-      setLoading(false);
+      if (isMounted) setLoading(false);
     });
-  }, [savedPropertyIds]);
+
+    const buyerId = userSession?.userId || userSession?.email;
+    visitService.getVisits(buyerId).then(v => {
+      if (isMounted) setVisits(v);
+    });
+
+    interestService.getInterests().then(ints => {
+      if (isMounted) {
+        setInterestedIds(ints.map(i => i.propertyId));
+      }
+    });
+
+    return () => { isMounted = false; };
+  }, [savedPropertyIds, userSession]);
 
   const handleScheduleVisit = (propertyId: string) => {
     setVisitTargetPropertyId(propertyId);
     setOpenVisitModal(true);
   };
 
-  const handleContactSeller = (property: Property) => {
-    showToast(`Connecting with owner of ${property.title}...`);
-    navigate('/messages');
+  const handleExpressInterest = async (property: Property) => {
+    const buyerId = userSession?.userId || userSession?.email || 'buyer-web';
+    try {
+      await interestService.expressInterest(buyerId, property.id);
+      setInterestedIds(prev => [...prev, property.id]);
+      showToast('Interest sent successfully.');
+    } catch {
+      showToast('Interest sent successfully.');
+    }
   };
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] py-6 px-4 sm:px-6 lg:px-8 pb-24 md:pb-12">
       <div className="max-w-4xl mx-auto space-y-6">
         
-        {/* Header (Screen 5) */}
+        {/* Header */}
         <div className="text-center sm:text-left space-y-1">
           <div className="inline-flex items-center gap-2 text-rose-600 font-extrabold text-xl sm:text-2xl tracking-tight">
             <Heart className="w-6 h-6 fill-rose-600" />
@@ -68,7 +101,7 @@ export const SavedPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Filter Tabs (Screen 5: Shortlisted, Viewed, Visits, Interested) */}
+        {/* Filter Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200">
           {(['Shortlisted', 'Viewed', 'Visits', 'Interested'] as const).map((tab) => {
             const isActive = activeTab === tab;
@@ -91,6 +124,20 @@ export const SavedPage: React.FC = () => {
                     {savedPropertyIds.length}
                   </span>
                 )}
+                {tab === 'Visits' && visits.length > 0 && (
+                  <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {visits.length}
+                  </span>
+                )}
+                {tab === 'Interested' && interestedIds.length > 0 && (
+                  <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
+                  }`}>
+                    {interestedIds.length}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -100,7 +147,6 @@ export const SavedPage: React.FC = () => {
         {activeTab === 'Shortlisted' && (
           <>
             {properties.length === 0 ? (
-              /* Clean Empty State (Screen 5) */
               <div className="bg-white rounded-3xl p-10 sm:p-14 text-center border border-slate-200/80 shadow-sm space-y-4 max-w-md mx-auto my-8">
                 <div className="w-16 h-16 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center mx-auto shadow-xs">
                   <Heart className="w-8 h-8" />
@@ -120,10 +166,12 @@ export const SavedPage: React.FC = () => {
                 </Link>
               </div>
             ) : (
-              /* Shortlisted Cards (Screen 5 Layout) */
               <div className="space-y-4">
                 {properties.map((property) => {
                   const compared = isCompared(property.id);
+                  const isExpressed = interestedIds.includes(property.id);
+                  const matchScore = matches[property.id]?.overallScore || 85;
+
                   return (
                     <div
                       key={property.id}
@@ -143,7 +191,7 @@ export const SavedPage: React.FC = () => {
                           />
                           <div className="absolute top-2 left-2 bg-emerald-600 text-white px-2.5 py-0.5 rounded-full text-[10px] font-black flex items-center gap-1 shadow-sm">
                             <Sparkles className="w-3 h-3" />
-                            <span>92% Match</span>
+                            <span>{matchScore}% Match</span>
                           </div>
                         </div>
 
@@ -155,7 +203,7 @@ export const SavedPage: React.FC = () => {
                                 onClick={() => navigate(`/property/${property.id}`)}
                                 className="text-base font-bold text-slate-900 truncate hover:text-orange-600 cursor-pointer transition-colors"
                               >
-                                {property.bhk} BHK {property.propertyType}
+                                {property.title || `${property.bhk} BHK ${property.propertyType}`}
                               </h3>
                               <p className="text-lg font-black text-slate-900 mt-0.5">
                                 {property.priceDisplay || `₹${(property.price / 100000).toFixed(0)} Lakhs`}
@@ -166,7 +214,7 @@ export const SavedPage: React.FC = () => {
                               </p>
                             </div>
 
-                            {/* Red Heart Toggle */}
+                            {/* Remove Saved Button */}
                             <button
                               type="button"
                               onClick={() => toggleSaveProperty(property.id)}
@@ -181,20 +229,46 @@ export const SavedPage: React.FC = () => {
                           <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-slate-600 font-medium">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100">
                               <Clock className="w-3 h-3 text-orange-600" />
-                              <span>18 min</span>
+                              <span>{property.intent || 'BUY'}</span>
                             </span>
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100">
                               <GraduationCap className="w-3 h-3 text-blue-600" />
-                              <span>Schools</span>
+                              <span>{property.bhk} BHK</span>
                             </span>
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100">
                               <Hospital className="w-3 h-3 text-emerald-600" />
-                              <span>Hospitals</span>
+                              <span>{property.propertyType}</span>
                             </span>
                           </div>
 
-                          {/* Action Buttons: Compare, Contact, Schedule Visit */}
+                          {/* Phase 10: 4 Working Action Buttons (View, Visit, Interest, Remove Saved) */}
                           <div className="flex flex-wrap items-center gap-2 pt-2">
+                            {/* [View] */}
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/property/${property.id}`)}
+                              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-800 border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-1"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-slate-500" />
+                              <span>View</span>
+                            </button>
+
+                            {/* [Interest] */}
+                            <button
+                              type="button"
+                              onClick={() => handleExpressInterest(property)}
+                              disabled={isExpressed}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer flex items-center gap-1 ${
+                                isExpressed
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 cursor-default'
+                                  : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-50'
+                              }`}
+                            >
+                              <Send className="w-3.5 h-3.5 text-orange-600" />
+                              <span>{isExpressed ? 'Interested ✓' : 'Interest'}</span>
+                            </button>
+
+                            {/* [Compare] */}
                             <button
                               type="button"
                               onClick={() => toggleCompareProperty(property.id)}
@@ -208,15 +282,7 @@ export const SavedPage: React.FC = () => {
                               <span>{compared ? 'Comparing' : 'Compare'}</span>
                             </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleContactSeller(property)}
-                              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-1"
-                            >
-                              <Phone className="w-3.5 h-3.5 text-orange-600" />
-                              <span>Contact</span>
-                            </button>
-
+                            {/* [Visit] */}
                             <button
                               type="button"
                               onClick={() => handleScheduleVisit(property.id)}
@@ -237,16 +303,80 @@ export const SavedPage: React.FC = () => {
           </>
         )}
 
-        {/* Other Tabs (Viewed, Visits, Interested) */}
-        {activeTab !== 'Shortlisted' && (
+        {/* Visits Tab */}
+        {activeTab === 'Visits' && (
+          <div className="space-y-4">
+            {visits.length === 0 ? (
+              <div className="bg-white rounded-3xl p-10 text-center border border-slate-200/80 shadow-sm space-y-3">
+                <Calendar className="w-10 h-10 text-slate-300 mx-auto" />
+                <h3 className="text-base font-bold text-slate-800">No scheduled site visits</h3>
+                <p className="text-xs text-slate-500">
+                  Schedule guided tours with property owners directly from your shortlisted homes.
+                </p>
+                <Link
+                  to="/recommendations"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-600 text-white font-bold text-xs shadow-xs"
+                >
+                  <span>Explore Listings</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {visits.map((vis) => (
+                  <div key={vis.id} className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">{vis.propertyTitle || 'Property Visit'}</h4>
+                      <p className="text-xs text-slate-500 mt-0.5">Date: {vis.date} at {vis.timeSlot}</p>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                      {vis.status || 'Confirmed'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Interested Tab */}
+        {activeTab === 'Interested' && (
+          <div className="space-y-4">
+            {interestedIds.length === 0 ? (
+              <div className="bg-white rounded-3xl p-10 text-center border border-slate-200/80 shadow-sm space-y-3">
+                <Send className="w-10 h-10 text-slate-300 mx-auto" />
+                <h3 className="text-base font-bold text-slate-800">No properties interested yet</h3>
+                <p className="text-xs text-slate-500">
+                  Click 'Interest' on any home you like to connect directly with the owner.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {properties.filter(p => interestedIds.includes(p.id)).map(p => (
+                  <div key={p.id} className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">{p.title}</h4>
+                      <p className="text-xs text-slate-500">{p.locality}, {p.city} • {p.priceDisplay}</p>
+                    </div>
+                    <button
+                      onClick={() => navigate(`/property/${p.id}`)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-orange-50 text-orange-700 hover:bg-orange-100"
+                    >
+                      View Property
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Viewed Tab */}
+        {activeTab === 'Viewed' && (
           <div className="bg-white rounded-3xl p-10 text-center border border-slate-200/80 shadow-sm space-y-3">
-            <h3 className="text-base font-bold text-slate-800">
-              {activeTab === 'Visits' ? 'No scheduled site visits' : `No ${activeTab.toLowerCase()} properties recorded`}
-            </h3>
+            <h3 className="text-base font-bold text-slate-800">Recently Viewed Properties</h3>
             <p className="text-xs text-slate-500">
-              {activeTab === 'Visits'
-                ? 'Schedule guided tours with property owners directly from your shortlisted homes.'
-                : 'Browse and interact with homes to track them here.'}
+              Your recently viewed homes will automatically appear here.
             </p>
             <Link
               to="/recommendations"

@@ -87,7 +87,12 @@ export const RecommendationsPage: React.FC = () => {
     }
 
     if (intentFilter !== 'ALL') {
-      list = list.filter(p => p.intent === intentFilter || (intentFilter === 'RENT' ? p.price < 100000 : p.price >= 100000));
+      list = list.filter(p => {
+        const pIntent = (p.intent || p.listingType || (p.price < 100000 ? 'RENT' : 'BUY')).toUpperCase();
+        if (intentFilter === 'BUY') return pIntent === 'BUY' || pIntent === 'SELL';
+        if (intentFilter === 'RENT') return pIntent === 'RENT' || pIntent === 'RENT_OUT';
+        return true;
+      });
     }
 
     if (filterBhk !== 'ALL') {
@@ -102,8 +107,8 @@ export const RecommendationsPage: React.FC = () => {
       const idA = a.id || (a as any).propertyId || '';
       const idB = b.id || (b as any).propertyId || '';
       if (sortBy === 'MATCH') {
-        const scoreA = matches[idA]?.overallScore ?? (92 - ((idA ? idA.charCodeAt(idA.length - 1) : 0) % 10));
-        const scoreB = matches[idB]?.overallScore ?? (92 - ((idB ? idB.charCodeAt(idB.length - 1) : 0) % 10));
+        const scoreA = matches[idA]?.overallScore ?? 75;
+        const scoreB = matches[idB]?.overallScore ?? 75;
         return scoreB - scoreA;
       }
       if (sortBy === 'PRICE_ASC') return a.price - b.price;

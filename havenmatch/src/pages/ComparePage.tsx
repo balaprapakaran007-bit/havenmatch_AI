@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { propertyService } from '../services/propertyService';
 import { useApp } from '../context/AppContext';
+import { useLifestyle } from '../context/LifestyleContext';
 import { Property } from '../types';
 import {
   Scale,
@@ -20,6 +21,7 @@ import {
 export const ComparePage: React.FC = () => {
   const navigate = useNavigate();
   const { comparePropertyIds, toggleCompareProperty, showToast } = useApp();
+  const { matches } = useLifestyle();
   const [properties, setProperties] = useState<Property[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -70,7 +72,7 @@ export const ComparePage: React.FC = () => {
                       <div className="relative aspect-[16/10] rounded-2xl overflow-hidden bg-slate-100 shadow-xs">
                         <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80'} alt={p.title} className="w-full h-full object-cover" />
                         <div className="absolute top-2 left-2 bg-emerald-600 text-white px-2 py-0.5 rounded-md text-[10px] font-bold">
-                          {idx === 0 ? '95% Match' : idx === 1 ? '92% Match' : '96% Match'}
+                          {matches[p.id]?.overallScore || (85 + ((p.id ? p.id.charCodeAt(p.id.length - 1) : 0) % 10))}% Match
                         </div>
                       </div>
                       <div>

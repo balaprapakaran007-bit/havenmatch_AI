@@ -96,6 +96,11 @@ export interface Property {
   amenities: string[];
   images: string[];
   featured?: boolean;
+  ownerId?: string;
+  sellerId?: string;
+  listingType?: 'BUY' | 'RENT';
+  primaryImage?: string;
+  coverImage?: string;
   seller: {
     id: string;
     name: string;
