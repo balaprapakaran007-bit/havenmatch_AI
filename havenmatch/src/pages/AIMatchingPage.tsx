@@ -202,9 +202,11 @@ export const AIMatchingPage: React.FC = () => {
           </button>
 
           <div className="flex items-center gap-1.5">
-            <div className="w-7 h-7 rounded-lg bg-orange-600 flex items-center justify-center text-white shadow-xs">
-              <Sparkles className="w-4 h-4" />
-            </div>
+            <img
+              src="/logo.png"
+              alt="HavenMatch AI Logo"
+              className="w-7 h-7 object-contain rounded-lg shadow-xs"
+            />
             <span className="font-black text-base sm:text-lg tracking-tight text-slate-900">
               HavenMatch <span className="text-orange-600">AI</span>
             </span>

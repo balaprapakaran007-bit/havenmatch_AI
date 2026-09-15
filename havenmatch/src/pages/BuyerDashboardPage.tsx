@@ -61,9 +61,11 @@ export const BuyerDashboardPage: React.FC = () => {
             <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm text-left">
               {/* Brand Header */}
               <div className="flex items-center gap-2.5 pb-5 mb-4 border-b border-slate-100">
-                <div className="w-9 h-9 rounded-xl bg-orange-600 flex items-center justify-center text-white shadow-xs">
-                  <Sparkles className="w-5 h-5" />
-                </div>
+                <img
+                  src="/logo.png"
+                  alt="HavenMatch AI Logo"
+                  className="w-9 h-9 object-contain rounded-xl shadow-xs"
+                />
                 <div>
                   <span className="font-extrabold text-base text-slate-900 block leading-tight">HavenMatch AI</span>
                   <span className="text-[10px] text-orange-600 font-bold uppercase tracking-wider">Buyer Portal</span>

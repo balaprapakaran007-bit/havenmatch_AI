@@ -63,9 +63,11 @@ export const Header: React.FC = () => {
               onClick={() => setActiveView('landing')}
               className="flex items-center gap-2 text-left focus:outline-none shrink-0"
             >
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-white shadow-haven-sm shrink-0">
-                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
+              <img
+                src="/logo.png"
+                alt="HavenMatch AI Logo"
+                className="w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-xl shadow-haven-sm shrink-0"
+              />
               <div className="min-w-0">
                 <span className="font-extrabold text-base sm:text-xl tracking-tight text-slate-900 dark:text-white flex items-center gap-1 leading-none">
                   HAVENMATCH <span className="text-orange-600 font-black">AI</span>

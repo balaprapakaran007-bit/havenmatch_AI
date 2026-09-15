@@ -80,9 +80,11 @@ export const Navbar: React.FC = () => {
             {/* Logo & Tagline */}
             <div className="flex items-center gap-3">
               <Link to="/" className="flex items-center gap-2.5 text-left focus:outline-none group">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform">
-                  <Sparkles className="w-5 h-5" />
-                </div>
+                <img
+                  src="/logo.png"
+                  alt="HavenMatch AI Logo"
+                  className="w-10 h-10 object-contain rounded-xl shadow-xs group-hover:scale-105 transition-transform"
+                />
                 <div>
                   <span className="font-extrabold text-xl tracking-tight text-slate-900 flex items-center gap-1 leading-none">
                     HavenMatch <span className="text-orange-600 font-black">AI</span>

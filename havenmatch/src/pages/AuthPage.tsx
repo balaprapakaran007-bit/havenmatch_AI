@@ -123,9 +123,11 @@ export const AuthPage: React.FC = () => {
           {/* Top Brand Logo Overlay */}
           <div className="absolute top-6 left-6 text-white text-left">
             <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-orange-600 flex items-center justify-center text-white">
-                <Sparkles className="w-4 h-4" />
-              </div>
+              <img
+                src="/logo.png"
+                alt="HavenMatch AI Logo"
+                className="w-9 h-9 object-contain rounded-xl shadow-xs"
+              />
               <span className="text-lg font-black tracking-tight">HavenMatch AI</span>
             </Link>
           </div>
@@ -149,9 +151,11 @@ export const AuthPage: React.FC = () => {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 lg:hidden">
-                <div className="w-8 h-8 rounded-xl bg-orange-600 flex items-center justify-center text-white">
-                  <Sparkles className="w-4 h-4" />
-                </div>
+                <img
+                  src="/logo.png"
+                  alt="HavenMatch AI Logo"
+                  className="w-8 h-8 object-contain rounded-xl shadow-xs"
+                />
                 <span className="text-lg font-black text-slate-900">HavenMatch AI</span>
               </div>
             </div>

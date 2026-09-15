@@ -13,9 +13,11 @@ export const Footer: React.FC = () => {
           {/* Col 1: Brand & Tagline */}
           <div className="space-y-3 md:col-span-1">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-white shadow-haven-sm">
-                <Sparkles className="w-4 h-4" />
-              </div>
+              <img
+                src="/logo.png"
+                alt="HavenMatch AI Logo"
+                className="w-8 h-8 object-contain rounded-xl shadow-haven-sm"
+              />
               <span className="font-extrabold text-lg tracking-tight text-slate-900">
                 HAVENMATCH <span className="text-orange-600">AI</span>
               </span>
