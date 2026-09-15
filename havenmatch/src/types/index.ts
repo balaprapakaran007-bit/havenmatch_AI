@@ -96,6 +96,7 @@ export interface Property {
   amenities: string[];
   images: string[];
   featured?: boolean;
+  status?: 'ACTIVE' | 'PENDING' | 'SOLD' | 'RENTED' | string;
   ownerId?: string;
   sellerId?: string;
   listingType?: 'BUY' | 'RENT';
