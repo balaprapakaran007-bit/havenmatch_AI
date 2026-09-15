@@ -994,10 +994,36 @@ async function handleAction(action, payload = {}) {
     // 2. Property Upload / Create (Saves directly to MongoDB Atlas)
     case 'properties/create': {
       const propertyData = payload.propertyData || payload;
-      if (!propertyData) throw new Error('Missing propertyData in payload');
+      if (!propertyData) {
+        const err = new Error('Missing propertyData in payload');
+        err.statusCode = 400;
+        throw err;
+      }
 
+      // 1. Title validation
+      const title = (propertyData.title || '').trim();
+      if (!title || title.length < 3) {
+        const err = new Error('Property title is required (minimum 3 characters).');
+        err.statusCode = 400;
+        throw err;
+      }
+
+      // 2. Price validation
+      const price = Number(propertyData.price) || 0;
+      if (price <= 0) {
+        const err = new Error('Valid property price or monthly rent is required.');
+        err.statusCode = 400;
+        throw err;
+      }
+
+      // 3. Owner resolution
       const ownerId = payload.userId || payload.requestUserId || propertyData.ownerId || propertyData.sellerId || propertyData.seller?.id || propertyData.userId;
-      if (!ownerId) throw new Error('Owner ID is required to create a property.');
+      if (!ownerId) {
+        const err = new Error('401 Unauthorized: Owner authentication is required to list a property.');
+        err.statusCode = 401;
+        throw err;
+      }
+
       const sellerId = ownerId;
       const sellerEmail = payload.userEmail || propertyData.sellerEmail || propertyData.seller?.email || propertyData.userEmail || '';
 
@@ -1006,7 +1032,7 @@ async function handleAction(action, payload = {}) {
       if (listingType === 'RENT_OUT') listingType = 'RENT';
       const intent = listingType;
 
-      // Check for potential duplicates unless forceCreate / confirmDuplicate is true
+      // 4. Duplicate Check
       if (!payload.forceCreate && !payload.confirmDuplicate && !propertyData.forceCreate && !propertyData.confirmDuplicate) {
         const duplicate = await findPotentialDuplicate(propertyData, ownerId);
         if (duplicate) {
@@ -1019,14 +1045,26 @@ async function handleAction(action, payload = {}) {
       }
 
       const id = propertyData.propertyId || propertyData.id || `prop-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
-      const price = Number(propertyData.price) || 0;
+      
       let priceDisplay = propertyData.priceDisplay;
       if (!priceDisplay) {
-        if (price === 0) priceDisplay = 'Contact for Price';
-        else if (listingType === 'RENT') priceDisplay = `₹${price.toLocaleString('en-IN')}/mo`;
+        if (listingType === 'RENT') priceDisplay = `₹${price.toLocaleString('en-IN')}/mo`;
         else if (price >= 10000000) priceDisplay = `₹${(price / 10000000).toFixed(2)} Cr`;
         else priceDisplay = `₹${(price / 100000).toFixed(0)} Lakhs`;
       }
+
+      const city = propertyData.city || 'Coimbatore';
+      const locality = propertyData.locality || 'Peelamedu';
+      const pincode = propertyData.pincode || '641004';
+      const fullAddress = propertyData.fullAddress || `${locality}, ${city} ${pincode}`.trim();
+      const coordinates = (propertyData.coordinates && propertyData.coordinates.lat && propertyData.coordinates.lng)
+        ? propertyData.coordinates
+        : { lat: 11.0168, lng: 76.9558 };
+
+      const rawImages = Array.isArray(propertyData.images) && propertyData.images.length > 0 
+        ? propertyData.images 
+        : ['https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80'];
+      const primaryImage = propertyData.primaryImage || rawImages[0];
 
       const newProperty = {
         ...propertyData,
@@ -1036,35 +1074,38 @@ async function handleAction(action, payload = {}) {
         sellerId,
         listingType,
         intent,
-        status: propertyData.status || 'ACTIVE',
+        status: 'ACTIVE',
         price,
         priceDisplay,
         bhk: Number(propertyData.bhk || propertyData.bedrooms) || 2,
+        bedrooms: Number(propertyData.bedrooms || propertyData.bhk) || 2,
         bathrooms: Number(propertyData.bathrooms) || 2,
         builtUpAreaSqFt: Number(propertyData.builtUpAreaSqFt || propertyData.builtUpArea) || 1200,
         carpetAreaSqFt: Number(propertyData.carpetAreaSqFt || propertyData.carpetArea) || 1000,
-        city: propertyData.city || 'Coimbatore',
-        locality: propertyData.locality || 'Prime Location',
-        pincode: propertyData.pincode || '641004',
-        fullAddress: propertyData.fullAddress || `${propertyData.locality || 'Prime Location'}, ${propertyData.city || 'Coimbatore'} ${propertyData.pincode || ''}`.trim(),
-        coordinates: propertyData.coordinates || { lat: 11.0168, lng: 76.9558 },
+        city,
+        locality,
+        pincode,
+        fullAddress,
+        coordinates,
+        images: rawImages,
+        primaryImage,
         sellerEmail,
         seller: {
           id: sellerId,
           name: propertyData.sellerName || propertyData.seller?.name || 'Verified Owner',
           email: sellerEmail,
-          phone: propertyData.sellerPhone || propertyData.seller?.phone || '',
+          phone: propertyData.sellerPhone || propertyData.seller?.phone || '+91 98422 11223',
           role: propertyData.ownerType || propertyData.seller?.role || 'Individual Owner',
           verified: true,
           responseRate: propertyData.seller?.responseRate || '98%'
         },
-        slug: propertyData.slug || (propertyData.title || 'property').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        slug: propertyData.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
         createdAt: new Date(),
         updatedAt: new Date()
       };
 
-      await db.collection('properties').insertOne(newProperty);
-      console.log(`[Properties] Created and saved new property to Atlas: "${newProperty.title}" (${id}) by owner: ${ownerId}`);
+      const insertResult = await db.collection('properties').insertOne(newProperty);
+      console.log(`[Properties] Created and saved new property to Atlas: "${newProperty.title}" (${id}) [DB _id: ${insertResult.insertedId}] by owner: ${ownerId}`);
 
       return {
         success: true,
@@ -1347,7 +1388,16 @@ async function handleAction(action, payload = {}) {
         activeProperties = await db.collection('properties').find({}).toArray();
       }
 
-      const recommendations = activeProperties
+      // Guarantee unique recommendations by propertyId
+      const uniquePropsMap = new Map();
+      for (const p of activeProperties) {
+        const pId = p.id || p.propertyId || String(p._id);
+        if (!uniquePropsMap.has(pId)) {
+          uniquePropsMap.set(pId, p);
+        }
+      }
+
+      const recommendations = Array.from(uniquePropsMap.values())
         .map((p) => calculateLifestyleMatch(p, buyer))
         .sort((a, b) => b.matchScore - a.matchScore);
 
