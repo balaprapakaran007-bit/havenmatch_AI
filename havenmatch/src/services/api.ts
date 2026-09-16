@@ -2,9 +2,19 @@
  * HAVENMATCH AI — Centralized API Client
  * Connects to MongoDB Atlas backend engine with auto-failover to SNS Workbench webhook.
  */
+const isLocalhost =
+  typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-const BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000';
-const WEBHOOK_FALLBACK = (import.meta as any).env?.VITE_MATCH_WEBHOOK_URL || 'http://localhost:5000/webhook/havenmatch/match';
+const BASE_URL =
+  (import.meta as any).env?.VITE_API_BASE_URL ||
+  (import.meta as any).env?.VITE_API_URL ||
+  (isLocalhost ? 'http://localhost:5000' : '');
+
+const CLOUD_WEBHOOK =
+  (import.meta as any).env?.VITE_SNS_WEBHOOK_URL ||
+  (import.meta as any).env?.VITE_MATCH_WEBHOOK_URL ||
+  'https://api.agents.snsihub.ai/webhook/havenmatch/match';
 
 const TIMEOUT_MS = 8000;
 const inFlightAPICalls = new Map<string, Promise<any>>();
@@ -110,11 +120,10 @@ export async function callAPI<T = Record<string, unknown>>(
     } catch { /* ignore */ }
 
     const target = getTargetRoute(action, payload);
-    const candidateUrls = [
-      `${BASE_URL}${target.path}`,
-      target.path, // Vite proxy relative path fallback
-      WEBHOOK_FALLBACK
-    ];
+    const candidateUrls: string[] = [];
+    if (BASE_URL) candidateUrls.push(`${BASE_URL}${target.path}`);
+    if (isLocalhost) candidateUrls.push(target.path);
+    candidateUrls.push(CLOUD_WEBHOOK);
 
     let lastError: Error | null = null;
 
@@ -210,6 +219,30 @@ export async function callAPI<T = Record<string, unknown>>(
           throw new APIError('Invalid JSON response received from server', undefined, action);
         }
 
+        // Unpack SNS Workbench multi-item wrapper if present
+        if (data && data.data && Array.isArray(data.data.items)) {
+          const matchingItem = data.data.items.find((it: any) => {
+            const j = it.json || it;
+            return j.action === action || (action.startsWith('auth/') && (j.user || j.token || j.data?.user));
+          }) || data.data.items[0];
+          if (matchingItem) {
+            const inner = matchingItem.json || matchingItem;
+            if (inner.success !== undefined) data.success = inner.success;
+            if (inner.error) data.error = inner.error;
+            data.data = inner.data !== undefined ? inner.data : inner;
+            if (inner.user) (data as any).user = inner.user;
+            if (inner.token) (data as any).token = inner.token;
+          }
+        }
+
+        // Lift top-level user / token if nested in data
+        if (data?.data?.user && !(data as any).user) {
+          (data as any).user = data.data.user;
+        }
+        if (data?.data?.token && !(data as any).token) {
+          (data as any).token = data.data.token;
+        }
+
         if (data && data.success === false) {
           const errText = data.error?.message || data.error || data.message || 'Operation unsuccessful';
           throw new APIError(String(errText), undefined, action);
@@ -220,9 +253,9 @@ export async function callAPI<T = Record<string, unknown>>(
         clearTimeout(timeoutId);
         lastError = err;
 
-        // CRITICAL: 4xx errors (400 bad request, 401 unauthenticated, 403 forbidden, 409 conflict)
-        // are explicit authorization/validation rejections from the server and must NEVER failover!
-        if (err instanceof APIError && err.status && err.status >= 400 && err.status < 500) {
+        // Authoritative business rejection codes (400, 401, 403, 409, 422) should abort failover.
+        // But 404 (Not Found) on a static host like Vercel indicates missing route on static host, so continue failover!
+        if (err instanceof APIError && err.status && [400, 401, 403, 409, 422].includes(err.status)) {
           throw err;
         }
 
