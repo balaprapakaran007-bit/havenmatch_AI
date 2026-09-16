@@ -9,6 +9,7 @@ import { EditProfileModal } from '../components/owner/EditProfileModal';
 import { PropertyFormModal } from '../components/owner/PropertyFormModal';
 import {
   Building2,
+  Plus,
   PlusCircle,
   Users,
   Eye,
@@ -47,7 +48,7 @@ export const OwnerDashboardPage: React.FC = () => {
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const ownerId = userSession?.userId || userSession?.id || userSession?.email || 'S001';
+  const ownerId = userSession?.userId || userSession?.id || '';
   const ownerEmail = userSession?.email;
 
   const loadDashboardData = useCallback(async () => {
@@ -56,14 +57,13 @@ export const OwnerDashboardPage: React.FC = () => {
       // 1. Fetch all properties
       const allProps = await propertyService.getProperties();
 
-      // Filter to properties belonging to this owner
+      // Filter to properties belonging strictly to this owner
       const myProps = allProps.filter(p => {
-        const sellerId = p.seller?.id;
-        const sellerEmail = p.seller?.email;
+        const sellerId = p.seller?.id || (p as any).ownerId;
+        const sellerEmail = p.seller?.email || (p as any).sellerEmail;
         if (!sellerId && !sellerEmail) return false;
         return (
-          sellerId === ownerId ||
-          sellerId === 'S001' ||
+          (ownerId && sellerId === ownerId) ||
           (ownerEmail && sellerEmail && sellerEmail.toLowerCase() === ownerEmail.toLowerCase())
         );
       });
@@ -139,17 +139,6 @@ export const OwnerDashboardPage: React.FC = () => {
                   <span>My Properties</span>
                 </Link>
 
-                <button
-                  onClick={() => {
-                    setEditingProperty(null);
-                    setIsPropertyModalOpen(true);
-                  }}
-                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 text-left"
-                >
-                  <PlusCircle className="w-4 h-4 text-slate-400" />
-                  <span>Add Property</span>
-                </button>
-
                 <Link to="/owner/matches" className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50">
                   <Users className="w-4 h-4 text-slate-400" />
                   <span>Buyer Matches</span>
@@ -177,8 +166,8 @@ export const OwnerDashboardPage: React.FC = () => {
                   }}
                   className="w-full py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
                 >
-                  <PlusCircle className="w-4 h-4" />
-                  <span>List New Property</span>
+                  <Plus className="w-4 h-4" />
+                  <span>Add Property</span>
                 </button>
               </div>
             </div>

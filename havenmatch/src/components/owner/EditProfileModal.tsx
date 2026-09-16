@@ -115,17 +115,33 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
       // If user uploaded a new local file base64, save it to server uploads
       if (selectedFileBase64) {
         setIsUploadingPhoto(true);
-        const uploadRes = await fetch('/api/profile/photo', {
+        const token = userSession?.token || localStorage.getItem('havenmatch_token');
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        };
+        if (token) {
+          headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+        }
+
+        const uploadRes = await fetch('/api/auth/profile/photo', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
+            token,
             userId: userSession?.id || userSession?.userId,
             email: email.trim().toLowerCase(),
             imageBase64: selectedFileBase64,
             fileName: selectedFileName
           })
         });
-        const uploadData = await uploadRes.json();
+
+        if (!uploadRes.ok) {
+          const errData = await uploadRes.json().catch(() => ({ error: 'Photo upload failed' }));
+          throw new Error(errData.error || `Photo upload failed (${uploadRes.status})`);
+        }
+
+        const uploadData = await uploadRes.json().catch(() => ({ success: false }));
         if (uploadData.success && uploadData.avatarUrl) {
           finalAvatarUrl = uploadData.avatarUrl;
         }

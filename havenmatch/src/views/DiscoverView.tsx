@@ -5,6 +5,7 @@ import { useLifestyle } from '../context/LifestyleContext';
 import { useApp } from '../context/AppContext';
 import { PropertyCard } from '../components/property/PropertyCard';
 import { POPULAR_INDIAN_CITIES } from '../data/mockData';
+import { isPropertyWithinBudget } from '../utils/budgetUtils';
 import { 
   SlidersHorizontal, 
   Sparkles, 
@@ -81,7 +82,11 @@ export const DiscoverView: React.FC = () => {
   });
 
   // Filter based on UI filters and search query
+  const userBudget = requirements.budgetMax || 0;
   const displayedProperties = sortedProperties.filter((p) => {
+    if (userBudget > 0 && !isPropertyWithinBudget(p, userBudget, selectedIntent !== 'ALL' ? selectedIntent : requirements.intent)) {
+      return false;
+    }
     if (vastuOnly && !p.vastuCompliant) return false;
     if (furnishingFilter !== 'all' && p.furnishing !== furnishingFilter) return false;
     if (searchQuery.trim()) {
@@ -304,9 +309,13 @@ export const DiscoverView: React.FC = () => {
             <Search className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-slate-900">No matching homes found</h3>
+            <h3 className="text-base font-bold text-slate-900">
+              {userBudget > 0 ? "No properties found within your budget." : "No matching homes found"}
+            </h3>
             <p className="text-xs text-slate-500 mt-1">
-              Try switching to "All India", resetting bedroom filters, or clearing search keywords.
+              {userBudget > 0
+                ? `No properties found within your budget of ₹${userBudget.toLocaleString('en-IN')}. Try adjusting your budget or clearing filters.`
+                : 'Try switching to "All India", resetting bedroom filters, or clearing search keywords.'}
             </p>
           </div>
           <div className="flex justify-center gap-2">

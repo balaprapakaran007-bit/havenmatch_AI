@@ -1,11 +1,13 @@
 /**
  * HAVENMATCH AI — Matching Service
- * Calls SNS Workbench for real AI-powered buyer-property matching.
- * The entire matching algorithm lives in SNS Workbench Workflow 25.
+ * Grounds buyer matching in authentic user type (Student vs IT Employee / Family),
+ * real GPS landmark proximity calculations (Haversine), and lifestyle compatibility.
  */
 
 import { callAPI } from './api';
 import { Property, BuyerRequirements, LifestyleProfile, MatchResult } from '../types';
+import { calculateDistanceKm, resolveLandmarkCoordinates, formatCommuteEstimate } from '../utils/geoUtils';
+import { isPropertyWithinBudget } from '../utils/budgetUtils';
 
 // ─── API response shapes ───────────────────────────────────────────────────
 
@@ -22,12 +24,17 @@ export interface APIRecommendation {
   tradeOffs: string[];
   explanation?: string;
   property?: Property;
+  computedDistanceKm?: number;
+  distanceFromTarget?: string;
+  commuteEstimate?: { driveTime: string; walkTime?: string };
 }
 
 interface MatchingBuyerResponse {
   success: boolean;
   action: string;
   buyerId?: string;
+  userType?: string;
+  targetLocationName?: string;
   matchCount: number;
   recommendations: APIRecommendation[];
 }
@@ -52,12 +59,30 @@ function getLabel(score: number): 'Excellent' | 'Good' | 'Moderate' | 'Fair' {
 /**
  * Converts a raw API recommendation into a MatchResult for the frontend.
  */
-function adaptRecommendation(rec: APIRecommendation): MatchResult {
+function adaptRecommendation(rec: APIRecommendation, targetName?: string, targetCoords?: { lat: number; lng: number }): MatchResult {
   const b = rec.scoreBreakdown;
   const budgetPct = (b.budget / 25) * 100;
   const locationPct = (b.location / 30) * 100;
   const lifestylePct = (b.lifestyle / 25) * 100;
   const propertyPct = (b.property / 20) * 100;
+
+  // Calculate or preserve computed distance
+  let distKm = rec.computedDistanceKm;
+  let distTarget = rec.distanceFromTarget;
+  let commuteEst = rec.commuteEstimate;
+
+  if (distKm === undefined && rec.property?.coordinates && targetCoords) {
+    distKm = calculateDistanceKm(
+      rec.property.coordinates.lat,
+      rec.property.coordinates.lng,
+      targetCoords.lat,
+      targetCoords.lng
+    );
+    if (distKm !== undefined && targetName) {
+      distTarget = `${distKm} km from ${targetName}`;
+      commuteEst = formatCommuteEstimate(distKm);
+    }
+  }
 
   return {
     propertyId: rec.propertyId,
@@ -72,7 +97,7 @@ function adaptRecommendation(rec: APIRecommendation): MatchResult {
       commuteFit: {
         score: Math.round(locationPct),
         label: getLabel(locationPct),
-        detail: `Location & commute score: ${Math.round(locationPct)}%`,
+        detail: distKm !== undefined ? `Proximity score (${distKm} km away)` : `Location & commute score: ${Math.round(locationPct)}%`,
       },
       healthcareFit: {
         score: Math.round(lifestylePct * 0.9),
@@ -104,7 +129,12 @@ function adaptRecommendation(rec: APIRecommendation): MatchResult {
     tradeOffs: rec.tradeOffs || [],
     lifestyleSummary:
       rec.explanation ||
-      `${rec.matchScore}% lifestyle match — ${getMatchTag(rec.matchScore).toLowerCase()} for your priorities.`,
+      (distKm !== undefined && targetName
+        ? `${rec.matchScore}% match — located ${distKm} km from ${targetName}.`
+        : `${rec.matchScore}% lifestyle match for your priorities.`),
+    computedDistanceKm: distKm,
+    distanceFromTarget: distTarget,
+    commuteEstimate: commuteEst
   };
 }
 
@@ -130,7 +160,7 @@ class MatchingService {
     agentNodeCount: 7,
     lastScore: null,
     mode: 'live',
-    endpoint: 'https://api.agents.snsihub.ai/webhook/havenmatch/match'
+    endpoint: '/api/matching/buyer'
   };
 
   private listeners: Array<(status: BackendStatus) => void> = [];
@@ -158,49 +188,112 @@ class MatchingService {
   async evaluateMatch(
     property: Property,
     requirements: BuyerRequirements,
-    lifestyle: LifestyleProfile
+    lifestyle: LifestyleProfile,
+    userId?: string
   ): Promise<MatchResult> {
-    const matches = await this.getMatches([property], requirements, lifestyle);
-    return (
-      matches[property.id] || {
+    const matches = await this.getMatches([property], requirements, lifestyle, userId);
+    if (matches[property.id]) {
+      return matches[property.id];
+    }
+
+    const targetName = requirements.targetLocationName || lifestyle.targetLocationName || (requirements.userType === 'Student' ? 'SNS College of Engineering' : lifestyle.workplaceLocation);
+    const targetCoords = requirements.targetCoordinates || lifestyle.targetCoordinates || resolveLandmarkCoordinates(targetName);
+    let distKm: number | undefined = undefined;
+    if (property.coordinates && targetCoords) {
+      distKm = calculateDistanceKm(property.coordinates.lat, property.coordinates.lng, targetCoords.lat, targetCoords.lng);
+    }
+
+    const userBudget = Number(requirements.budgetMax || (requirements as any).userBudget || 0);
+    if (userBudget > 0 && !isPropertyWithinBudget(property, userBudget, requirements.intent)) {
+      return {
         propertyId: property.id,
-        overallScore: 88,
+        overallScore: 0,
         tag: 'Recommended',
         breakdown: {
-          budgetFit: { score: 90, label: 'Excellent', detail: 'Well within budget' },
-          commuteFit: { score: 85, label: 'Good', detail: 'Comfortable commute distance' },
-          healthcareFit: { score: 90, label: 'Excellent', detail: 'Near major hospital' },
-          transitFit: { score: 85, label: 'Good', detail: 'Close to main transit' },
-          schoolsFit: { score: 80, label: 'Good', detail: 'Schools within reach' },
-          neighborhoodFit: { score: 88, label: 'Good', detail: 'Peaceful residential locality' },
-          amenitiesFit: { score: 90, label: 'Excellent', detail: 'Key amenities available' }
+          budgetFit: { score: 0, label: 'Fair', detail: 'Exceeds user budget' },
+          commuteFit: { score: 0, label: 'Fair', detail: 'Exceeds user budget' },
+          healthcareFit: { score: 0, label: 'Fair', detail: 'Exceeds user budget' },
+          transitFit: { score: 0, label: 'Fair', detail: 'Exceeds user budget' },
+          schoolsFit: { score: 0, label: 'Fair', detail: 'Exceeds user budget' },
+          neighborhoodFit: { score: 0, label: 'Fair', detail: 'Exceeds user budget' },
+          amenitiesFit: { score: 0, label: 'Fair', detail: 'Exceeds user budget' }
         },
-        whyItMatches: [
-          `Matches your ${requirements.intent === 'BUY' ? 'purchase' : 'rental'} criteria in ${property.locality}`,
-          `Within your budget ceiling`,
-          `Located in desirable ${property.city} neighborhood`
-        ],
-        tradeOffs: [],
-        lifestyleSummary: `Strong match for your lifestyle requirements in ${property.locality}.`
-      }
-    );
+        whyItMatches: [],
+        tradeOffs: ['Exceeds user maximum budget limit'],
+        lifestyleSummary: 'Exceeds user maximum budget limit.',
+        computedDistanceKm: distKm,
+        distanceFromTarget: distKm !== undefined && targetName ? `${distKm} km from ${targetName}` : undefined,
+        commuteEstimate: distKm !== undefined ? formatCommuteEstimate(distKm) : undefined
+      };
+    }
+
+    return {
+      propertyId: property.id,
+      overallScore: (property as any).matchScore || 85,
+      tag: 'Recommended',
+      breakdown: {
+        budgetFit: { score: 85, label: 'Good', detail: 'Budget evaluation' },
+        commuteFit: { score: 85, label: 'Good', detail: distKm !== undefined ? `${distKm} km away` : 'Location evaluation' },
+        healthcareFit: { score: 80, label: 'Good', detail: 'Healthcare access' },
+        transitFit: { score: 80, label: 'Good', detail: 'Transit access' },
+        schoolsFit: { score: 80, label: 'Good', detail: 'Schools access' },
+        neighborhoodFit: { score: 85, label: 'Good', detail: 'Neighborhood fit' },
+        amenitiesFit: { score: 80, label: 'Good', detail: 'Amenities fit' }
+      },
+      whyItMatches: distKm !== undefined && targetName ? [`Only ${distKm} km from ${targetName}`] : [],
+      tradeOffs: [],
+      lifestyleSummary: distKm !== undefined && targetName ? `Located ${distKm} km from ${targetName}.` : `Evaluation for ${property.locality || property.city || 'property'}.`,
+      computedDistanceKm: distKm,
+      distanceFromTarget: distKm !== undefined && targetName ? `${distKm} km from ${targetName}` : undefined,
+      commuteEstimate: distKm !== undefined ? formatCommuteEstimate(distKm) : undefined
+    };
   }
 
   /**
-   * Full buyer-property matching via SNS Workbench AI engine.
-   * Returns a map of propertyId → MatchResult for use in LifestyleContext.
+   * Full buyer-property matching via HavenMatch AI engine.
+   * Returns a map of propertyId -> MatchResult for use in LifestyleContext.
    */
   async getMatches(
-    _properties: Property[], // kept for API compat — backend fetches properties itself
+    _properties: Property[],
     requirements: BuyerRequirements,
-    lifestyle: LifestyleProfile
+    lifestyle: LifestyleProfile,
+    userId?: string
   ): Promise<Record<string, MatchResult>> {
     this.status.isEvaluating = true;
     this.notifyListeners();
 
     try {
+      let activeUserId = userId;
+      if (!activeUserId) {
+        try {
+          const storedSession = localStorage.getItem('havenmatch_session') || localStorage.getItem('user_session');
+          if (storedSession) {
+            const parsed = JSON.parse(storedSession);
+            activeUserId = parsed.userId || parsed.id;
+          }
+        } catch (_) {}
+      }
+
+      const userType = requirements.buyerType || requirements.userType || lifestyle.buyerType || lifestyle.userType || 'IT Employee / Working Professional';
+      const isStudent = userType === 'Student';
+      const isIT = userType === 'IT Employee / Working Professional';
+      const targetLocationName = requirements.targetLocationName || lifestyle.targetLocationName || (
+        isStudent ? 'SNS College of Engineering' :
+        isIT ? (lifestyle.workplaceLocation || 'TIDEL Park') :
+        undefined
+      );
+      const targetCoordinates = requirements.targetCoordinates || lifestyle.targetCoordinates || (targetLocationName ? resolveLandmarkCoordinates(targetLocationName) : undefined);
+      const maxDistanceKm = requirements.maxDistanceKm || lifestyle.maxDistanceKm || (isStudent ? 3 : isIT ? 5 : undefined);
+
       const buyerProfile = {
-        userId: 'buyer-' + Date.now(),
+        userId: activeUserId || undefined,
+        buyerId: activeUserId || undefined,
+        userType,
+        buyerType: userType,
+        targetLocationName,
+        targetCoordinates,
+        maxDistanceKm,
+        isCustomDistance: requirements.isCustomDistance || lifestyle.isCustomDistance,
         intent: requirements.intent,
         city: requirements.city,
         preferredLocalities: requirements.preferredLocalities,
@@ -209,7 +302,11 @@ class MatchingService {
         bhk: requirements.bhk,
         propertyTypes: requirements.propertyTypes,
         lifestyle: {
+          userType,
           workplaceLocation: lifestyle.workplaceLocation,
+          targetLocationName,
+          targetCoordinates,
+          maxDistanceKm,
           maxCommuteMins: lifestyle.maxCommuteMins,
           priorities: lifestyle.priorities,
           hasElderlyFamily: lifestyle.hasElderlyFamily,
@@ -222,11 +319,20 @@ class MatchingService {
       const data = await callAPI<MatchingBuyerResponse>('matching/buyer', {
         action: 'matching/buyer',
         buyer: buyerProfile,
+        userId: activeUserId,
+        buyerId: activeUserId
       });
 
+      const userBudget = Number(requirements.budgetMax || (requirements as any).userBudget || 0);
       const results: Record<string, MatchResult> = {};
       for (const rec of data.recommendations || []) {
-        results[rec.propertyId] = adaptRecommendation(rec);
+        if (rec && rec.propertyId) {
+          // CRITICAL: HARD MAXIMUM BUDGET SAFETY FILTER
+          if (userBudget > 0 && rec.property && !isPropertyWithinBudget(rec.property, userBudget, requirements.intent)) {
+            continue; // Exclude: exceeds user budget
+          }
+          results[rec.propertyId] = adaptRecommendation(rec, targetLocationName, targetCoordinates);
+        }
       }
 
       this.status.connected = true;
@@ -249,4 +355,3 @@ class MatchingService {
 }
 
 export const matchingService = new MatchingService();
-

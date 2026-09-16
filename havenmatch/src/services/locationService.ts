@@ -14,6 +14,20 @@ interface LocationPOIResponse {
   nearbyPlaces: NearbyPlace[];
 }
 
+export interface GeocodeResult {
+  latitude: number;
+  longitude: number;
+  formattedAddress?: string;
+  source?: string;
+}
+
+export interface DiscoverPlacesResult {
+  coordinates: { latitude: number; longitude: number };
+  totalPlaces: number;
+  nearbyPlaces: NearbyPlace[];
+  categorized?: Record<string, NearbyPlace[]>;
+}
+
 class LocationService {
   private cache = new Map<string, { data: NearbyPlace[]; timestamp: number }>();
   private inFlightPromises = new Map<string, Promise<NearbyPlace[]>>();
@@ -48,6 +62,83 @@ class LocationService {
 
     this.inFlightPromises.set(propertyId, fetchPromise);
     return fetchPromise;
+  }
+
+  /**
+   * Geocode a property address using real Nominatim API via backend
+   */
+  async geocodeLocation(details: {
+    address?: string;
+    locality?: string;
+    city?: string;
+    pincode?: string;
+    landmark?: string;
+  }): Promise<GeocodeResult | null> {
+    try {
+      const res = await callAPI<{
+        success: boolean;
+        coordinates?: { latitude?: number; longitude?: number; lat?: number; lng?: number };
+        latitude?: number;
+        longitude?: number;
+        displayName?: string;
+        formattedAddress?: string;
+        source?: string;
+      }>('location/geocode', details);
+
+      if (res) {
+        const lat = res.latitude || res.coordinates?.latitude || res.coordinates?.lat;
+        const lng = res.longitude || res.coordinates?.longitude || res.coordinates?.lng;
+        if (lat && lng) {
+          return {
+            latitude: Number(lat),
+            longitude: Number(lng),
+            formattedAddress: res.displayName || res.formattedAddress,
+            source: res.source || 'OpenStreetMap'
+          };
+        }
+      }
+      return null;
+    } catch (e) {
+      console.error('Geocoding error:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Discover real nearby places around coordinates across 12 categories
+   */
+  async discoverPlaces(params: {
+    latitude: number;
+    longitude: number;
+    propertyType?: string;
+    radiusKm?: number;
+  }): Promise<DiscoverPlacesResult | null> {
+    try {
+      const res = await callAPI<{
+        success: boolean;
+        coordinates?: { latitude?: number; longitude?: number; lat?: number; lng?: number };
+        totalPlaces?: number;
+        count?: number;
+        nearbyPlaces?: NearbyPlace[];
+        categorized?: Record<string, NearbyPlace[]>;
+      }>('location/discover', params);
+
+      if (res && res.nearbyPlaces) {
+        const places = res.nearbyPlaces || [];
+        const lat = res.coordinates?.latitude || res.coordinates?.lat || params.latitude;
+        const lng = res.coordinates?.longitude || res.coordinates?.lng || params.longitude;
+        return {
+          coordinates: { latitude: Number(lat), longitude: Number(lng) },
+          totalPlaces: res.count || res.totalPlaces || places.length,
+          nearbyPlaces: places,
+          categorized: res.categorized
+        };
+      }
+      return null;
+    } catch (e) {
+      console.error('Discover places error:', e);
+      return null;
+    }
   }
 
   /**

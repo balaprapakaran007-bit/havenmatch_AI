@@ -76,7 +76,7 @@ export const SavedPage: React.FC = () => {
   };
 
   const handleExpressInterest = async (property: Property) => {
-    const buyerId = userSession?.userId || userSession?.email || 'buyer-web';
+    const buyerId = userSession?.userId || userSession?.id;
     try {
       await interestService.expressInterest(buyerId, property.id);
       setInterestedIds(prev => [...prev, property.id]);

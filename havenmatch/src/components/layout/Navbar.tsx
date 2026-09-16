@@ -138,7 +138,7 @@ export const Navbar: React.FC = () => {
                     className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-orange-700 hover:text-orange-800 hover:bg-orange-50/70 rounded-lg transition-all cursor-pointer"
                   >
                     <Plus className="w-4 h-4 text-orange-600" />
-                    <span>+ Add Property</span>
+                    <span>Add Property</span>
                   </button>
                 </>
               ) : (
@@ -312,7 +312,7 @@ export const Navbar: React.FC = () => {
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-orange-700 bg-orange-50 border border-orange-200 text-left"
                 >
                   <Plus className="w-4 h-4 text-orange-600" />
-                  <span>+ Add Property</span>
+                  <span>Add Property</span>
                 </button>
               )}
             </div>

@@ -6,6 +6,7 @@ import { locationService } from '../services/locationService';
 import { matchingService } from '../services/matchingService';
 import { useApp } from '../context/AppContext';
 import { useLifestyle } from '../context/LifestyleContext';
+import { isPropertyWithinBudget } from '../utils/budgetUtils';
 import L from 'leaflet';
 import {
   Sparkles,
@@ -92,14 +93,19 @@ export const MapMatchPage: React.FC = () => {
 
     locationService.getNearbyPlaces(selectedProperty.id).then((poiList) => {
       if (!isMounted) return;
-      setPlaces(poiList);
-      if (poiList.length > 0) {
-        setSelectedPoi(poiList[0]);
+      const finalPlaces = (poiList && poiList.length > 0) ? poiList : (selectedProperty.nearbyPlaces || []);
+      setPlaces(finalPlaces);
+      if (finalPlaces.length > 0) {
+        setSelectedPoi(finalPlaces[0]);
       } else {
         setSelectedPoi(null);
       }
     }).catch(() => {
-      if (isMounted) setPlaces([]);
+      if (isMounted) {
+        const fallback = selectedProperty.nearbyPlaces || [];
+        setPlaces(fallback);
+        setSelectedPoi(fallback[0] || null);
+      }
     });
 
     return () => {
@@ -344,8 +350,14 @@ export const MapMatchPage: React.FC = () => {
     }
   };
 
-  // Filtered properties list
+  const userBudget = Number(requirements.budgetMax || (requirements as any).budget || 0);
+
+  // Filtered properties list with strict hard maximum budget check
   const filteredProperties = properties.filter((p) => {
+    if (userBudget > 0 && !isPropertyWithinBudget(p, userBudget, requirements.intent)) {
+      return false;
+    }
+
     const matchesSearch =
       searchTerm === '' ||
       p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||

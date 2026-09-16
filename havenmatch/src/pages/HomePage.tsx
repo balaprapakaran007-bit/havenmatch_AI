@@ -98,7 +98,7 @@ export const HomePage: React.FC = () => {
     ).length;
     return {
       ...loc,
-      count: matchedCount > 0 ? `${matchedCount} Home${matchedCount === 1 ? '' : 's'}` : '3 Homes'
+      count: `${matchedCount} Home${matchedCount === 1 ? '' : 's'}`
     };
   });
 

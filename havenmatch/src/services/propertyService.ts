@@ -6,6 +6,7 @@
 
 import { callAPI } from './api';
 import { Property, BuyerRequirements } from '../types';
+import { isPropertyWithinBudget } from '../utils/budgetUtils';
 
 export interface PropertyFilters {
   city?: string;
@@ -122,8 +123,9 @@ class PropertyService {
     if (req.bhk?.length) {
       filtered = filtered.filter(p => req.bhk!.some(b => b === p.bhk || (b === 4 && p.bhk >= 4)));
     }
-    if (req.budgetMax && req.budgetMax > 0) {
-      filtered = filtered.filter(p => p.price <= req.budgetMax!);
+    const userBudget = Number(req.budgetMax || (req as any).budget || (req as any).userBudget || 0);
+    if (userBudget > 0) {
+      filtered = filtered.filter(p => isPropertyWithinBudget(p, userBudget, req.intent));
     }
 
     return filtered;

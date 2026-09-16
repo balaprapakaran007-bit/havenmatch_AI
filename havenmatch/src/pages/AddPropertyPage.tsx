@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { propertyService } from '../services/propertyService';
+import { locationService } from '../services/locationService';
 import { Property, PropertyType, FacingDirection, FurnishingStatus, PossessionStatus, NearbyPlace } from '../types';
 import {
   Building2,
@@ -20,7 +21,15 @@ import {
   Volume2,
   Droplets,
   Zap,
-  Navigation
+  Navigation,
+  Loader2,
+  CheckCircle2,
+  Crosshair,
+  Hospital,
+  GraduationCap,
+  Bus,
+  ShoppingBag,
+  Dumbbell
 } from 'lucide-react';
 
 export const AddPropertyPage: React.FC = () => {
@@ -98,44 +107,15 @@ export const AddPropertyPage: React.FC = () => {
     'Siruvani Water Connection'
   ]);
 
-  // 5. Nearby Places
-  const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([
-    {
-      id: 'poi-1',
-      name: 'PSG Hospitals & KMCH',
-      category: 'hospital',
-      categoryLabel: 'Super Specialty Hospital',
-      distanceKm: 1.2,
-      driveTimeMins: 4,
-      direction: 'NE',
-      directionDegrees: 45,
-      highlight: '24/7 Emergency Care'
-    },
-    {
-      id: 'poi-2',
-      name: 'Delhi Public School',
-      category: 'school',
-      categoryLabel: 'CBSE School',
-      distanceKm: 1.8,
-      driveTimeMins: 6,
-      direction: 'N',
-      directionDegrees: 20,
-      highlight: 'Top CBSE School'
-    },
-    {
-      id: 'poi-3',
-      name: 'Peelamedu Bus Corridor',
-      category: 'transit',
-      categoryLabel: 'Public Bus Stop',
-      distanceKm: 0.45,
-      driveTimeMins: 2,
-      direction: 'S',
-      directionDegrees: 180,
-      highlight: 'Direct city buses'
-    }
-  ]);
+  // 5. Nearby Places (Discovered automatically via OpenStreetMap & Location Intelligence)
+  const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [locationDetectionStatus, setLocationDetectionStatus] = useState<string>('');
+  const [locationDetectionSuccess, setLocationDetectionSuccess] = useState<boolean | null>(null);
+  const [showManualAddPoi, setShowManualAddPoi] = useState(false);
   const [newPoiName, setNewPoiName] = useState('');
-  const [newPoiCategory, setNewPoiCategory] = useState<'hospital' | 'school' | 'transit' | 'supermarket' | 'techpark'>('hospital');
+  const [newPoiCategory, setNewPoiCategory] = useState<'hospital' | 'school' | 'transit' | 'supermarket' | 'techpark' | 'college' | 'gym' | 'bank' | 'restaurant'>('hospital');
   const [newPoiDist, setNewPoiDist] = useState('1.5');
   const [newPoiDrive, setNewPoiDrive] = useState('5');
 
@@ -179,6 +159,65 @@ export const AddPropertyPage: React.FC = () => {
     setSuitableFor(prev =>
       prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
     );
+  };
+
+  const handleDetectLocation = async () => {
+    if (!locality.trim() && !fullAddress.trim()) {
+      showToast('Please enter locality or street address in Section 2 first.');
+      return;
+    }
+
+    setIsDetectingLocation(true);
+    setLocationDetectionStatus('Geocoding property address with real satellite data...');
+    setLocationDetectionSuccess(null);
+
+    try {
+      const geoResult = await locationService.geocodeLocation({
+        address: fullAddress.trim(),
+        locality: locality.trim(),
+        city: city.trim(),
+        pincode: pincode.trim()
+      });
+
+      if (!geoResult || !geoResult.latitude || !geoResult.longitude) {
+        setLocationDetectionSuccess(false);
+        setLocationDetectionStatus('Unable to determine coordinates for this address. Please verify locality/city.');
+        showToast('Location coordinates could not be resolved.');
+        setIsDetectingLocation(false);
+        return;
+      }
+
+      setCoordinates({ lat: geoResult.latitude, lng: geoResult.longitude });
+      setLocationDetectionStatus(`Coordinates verified (${geoResult.latitude.toFixed(4)}, ${geoResult.longitude.toFixed(4)}). Discovering real nearby facilities...`);
+
+      const discoverResult = await locationService.discoverPlaces({
+        latitude: geoResult.latitude,
+        longitude: geoResult.longitude,
+        propertyType
+      });
+
+      if (discoverResult && discoverResult.nearbyPlaces && discoverResult.nearbyPlaces.length > 0) {
+        setNearbyPlaces(discoverResult.nearbyPlaces);
+        setLocationDetectionSuccess(true);
+        setLocationDetectionStatus(
+          `Verified! Discovered ${discoverResult.nearbyPlaces.length} real places nearby across hospitals, transit, schools, supermarkets & more.`
+        );
+        showToast(`Auto-discovered ${discoverResult.nearbyPlaces.length} real nearby places!`);
+      } else {
+        setNearbyPlaces([]);
+        setLocationDetectionSuccess(true);
+        setLocationDetectionStatus(
+          `Coordinates verified (${geoResult.latitude.toFixed(4)}, ${geoResult.longitude.toFixed(4)}), but no indexed public places found nearby.`
+        );
+        showToast('Coordinates verified.');
+      }
+    } catch (err: any) {
+      setLocationDetectionSuccess(false);
+      setLocationDetectionStatus('Failed to discover location. Please check your network connection.');
+      showToast('Error discovering location intelligence.');
+    } finally {
+      setIsDetectingLocation(false);
+    }
   };
 
   const handleAddPoi = () => {
@@ -276,6 +315,32 @@ export const AddPropertyPage: React.FC = () => {
       errs.images = 'At least 1 photo is required.';
     }
 
+    if (errs.title) {
+      setActiveSection(1);
+      showToast('Please enter Property Title (Section 1)');
+      return false;
+    }
+    if (errs.price) {
+      setActiveSection(1);
+      showToast('Please enter a valid Price or Rent (Section 1)');
+      return false;
+    }
+    if (errs.floor) {
+      setActiveSection(1);
+      showToast(errs.floor);
+      return false;
+    }
+    if (errs.locality || errs.city) {
+      setActiveSection(2);
+      showToast('Please enter Locality and City (Section 2)');
+      return false;
+    }
+    if (errs.images) {
+      setActiveSection(7);
+      showToast('Please add at least 1 photo (Section 7)');
+      return false;
+    }
+
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -283,7 +348,6 @@ export const AddPropertyPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) {
-      showToast('Please resolve validation errors before listing.');
       return;
     }
 
@@ -310,7 +374,7 @@ export const AddPropertyPage: React.FC = () => {
         locality,
         pincode,
         fullAddress: fullAddress.trim() || `${locality}, ${city} ${pincode}`,
-        coordinates: { lat: 11.0255, lng: 77.0028 },
+        coordinates: coordinates || undefined,
         price,
         priceDisplay,
         pricePerSqFt: `₹${Math.round(price / (builtUpArea || 1200))}/sq.ft`,
@@ -346,7 +410,7 @@ export const AddPropertyPage: React.FC = () => {
         amenities: selectedAmenities,
         images,
         seller: {
-          id: userSession?.userId || userSession?.email || 'S001',
+          id: userSession?.userId || userSession?.id || '',
           name: userSession?.name || 'Property Owner',
           role: userSession?.ownerType === 'AGENT' ? 'Real Estate Agent' : 'Individual Owner',
           phone: userSession?.phone || '+91 98422 11223',
@@ -681,6 +745,75 @@ export const AddPropertyPage: React.FC = () => {
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-orange-500"
                   />
                 </div>
+
+                {/* Auto-Location Detection & Places Discovery Panel */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-orange-50/90 via-amber-50/70 to-orange-50/90 border border-orange-200/80 space-y-3.5 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs font-black text-orange-950 uppercase tracking-wide">
+                        <Sparkles className="w-4 h-4 text-orange-600 shrink-0" />
+                        <span>HavenMatch AI Location Intelligence</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600">
+                        Automatically discovers genuine hospitals, transit stops, schools, and supermarkets from real OpenStreetMap intelligence based on the property address.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={isDetectingLocation}
+                      onClick={handleDetectLocation}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white font-extrabold text-xs transition-all shadow-haven-sm disabled:opacity-50 cursor-pointer shrink-0"
+                    >
+                      {isDetectingLocation ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Detecting Real Places...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Crosshair className="w-3.5 h-3.5" />
+                          <span>Auto-Discover Nearby Places</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {locationDetectionStatus && (
+                    <div
+                      className={`p-3 rounded-xl text-xs font-semibold flex items-start gap-2 ${
+                        locationDetectionSuccess === true
+                          ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+                          : locationDetectionSuccess === false
+                          ? 'bg-rose-50 text-rose-900 border border-rose-200'
+                          : 'bg-amber-50 text-amber-900 border border-amber-200'
+                      }`}
+                    >
+                      {locationDetectionSuccess === true ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      ) : locationDetectionSuccess === false ? (
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      ) : (
+                        <Loader2 className="w-4 h-4 text-amber-600 animate-spin shrink-0 mt-0.5" />
+                      )}
+                      <span>{locationDetectionStatus}</span>
+                    </div>
+                  )}
+
+                  {coordinates && (
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 font-mono pt-0.5">
+                      <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-800 font-bold">
+                        Lat: {coordinates.lat.toFixed(5)}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-800 font-bold">
+                        Lng: {coordinates.lng.toFixed(5)}
+                      </span>
+                      <span className="text-emerald-700 font-bold text-[11px] ml-1">
+                        ✓ Verified via OpenStreetMap
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -796,81 +929,178 @@ export const AddPropertyPage: React.FC = () => {
               </div>
             )}
 
-            {/* SECTION 5: Nearby Landmarks */}
+            {/* SECTION 5: Nearby Landmarks (Auto-Discovered & Genuine) */}
             {activeSection === 5 && (
-              <div className="space-y-4">
-                <h3 className="text-sm font-extrabold text-orange-600 uppercase tracking-wider flex items-center gap-1.5">
-                  <Navigation className="w-4 h-4" />
-                  <span>Section 5: Nearby Places & Commute POIs</span>
-                </h3>
+              <div className="space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-orange-600 uppercase tracking-wider flex items-center gap-1.5">
+                      <Navigation className="w-4 h-4" />
+                      <span>Section 5: Genuine Nearby Places & Commute POIs</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {nearbyPlaces.length > 0
+                        ? `${nearbyPlaces.length} real landmarks verified from OpenStreetMap intelligence.`
+                        : 'Automatically populated according to the actual property location.'}
+                    </p>
+                  </div>
 
-                <div className="space-y-2">
-                  {nearbyPlaces.map(poi => (
-                    <div
-                      key={poi.id}
-                      className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-900">{poi.name}</span>
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-slate-200 text-slate-700">
-                            {poi.category}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-orange-600 font-bold mt-0.5">
-                          {poi.distanceKm} km • {poi.driveTimeMins} mins drive
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemovePoi(poi.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+                  <button
+                    type="button"
+                    disabled={isDetectingLocation}
+                    onClick={handleDetectLocation}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 font-extrabold text-xs transition-all cursor-pointer shrink-0 disabled:opacity-50"
+                  >
+                    {isDetectingLocation ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Crosshair className="w-3.5 h-3.5" />
+                    )}
+                    <span>{nearbyPlaces.length > 0 ? 'Refresh Nearby Places' : 'Auto-Discover Places'}</span>
+                  </button>
                 </div>
 
-                {/* Add New POI */}
-                <div className="p-4 rounded-2xl bg-orange-50/50 border border-orange-200/80 space-y-3">
-                  <span className="text-xs font-bold text-orange-900 block">Add Landmark</span>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                    <input
-                      type="text"
-                      value={newPoiName}
-                      onChange={e => setNewPoiName(e.target.value)}
-                      placeholder="Place name (e.g. TIDEL Park)"
-                      className="sm:col-span-2 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none"
-                    />
-                    <select
-                      value={newPoiCategory}
-                      onChange={e => setNewPoiCategory(e.target.value as any)}
-                      className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none"
-                    >
-                      <option value="hospital">Hospital</option>
-                      <option value="school">School</option>
-                      <option value="transit">Transit / Bus</option>
-                      <option value="supermarket">Grocery / Mall</option>
-                    </select>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={newPoiDist}
-                        onChange={e => setNewPoiDist(e.target.value)}
-                        placeholder="Km"
-                        className="w-16 px-2 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddPoi}
-                        className="flex-1 py-2 rounded-xl bg-orange-600 text-white font-bold text-xs hover:bg-orange-700"
-                      >
-                        + Add
-                      </button>
+                {/* Discovered Places List */}
+                {nearbyPlaces.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {nearbyPlaces.map(poi => (
+                        <div
+                          key={poi.id}
+                          className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex items-center justify-between gap-3 hover:border-slate-300 transition-all"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-extrabold text-slate-900 truncate">
+                                {poi.name}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 capitalize shrink-0">
+                                {poi.category}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-orange-600 font-bold mt-1">
+                              <span>{poi.distanceKm} km</span>
+                              {poi.driveTimeMins !== undefined && poi.driveTimeMins > 0 && (
+                                <>
+                                  <span>•</span>
+                                  <span>{poi.driveTimeMins} min drive</span>
+                                </>
+                              )}
+                              {poi.walkTimeMins !== undefined && poi.walkTimeMins > 0 && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-slate-500 font-normal">{poi.walkTimeMins} min walk</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            title="Remove this landmark"
+                            onClick={() => handleRemovePoi(poi.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer shrink-0"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-xs text-emerald-800 font-medium">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>
+                        Verified: These genuine places and travel times will be saved to your property record and used by HavenMatch AI matching.
+                      </span>
                     </div>
                   </div>
+                ) : (
+                  <div className="p-8 rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 text-center space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center mx-auto">
+                      <MapPin className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-bold text-slate-900">No Nearby Places Detected Yet</h4>
+                      <p className="text-xs text-slate-500 max-w-md mx-auto">
+                        HavenMatch AI discovers real hospitals, schools, transit stops, and supermarkets automatically based on your property address.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isDetectingLocation}
+                      onClick={handleDetectLocation}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs transition-all shadow-haven-sm disabled:opacity-50 cursor-pointer"
+                    >
+                      {isDetectingLocation ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Detecting Real Places...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Crosshair className="w-3.5 h-3.5" />
+                          <span>Detect Real Places for {locality || 'This Property'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* Optional Custom Landmark Accordion */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowManualAddPoi(prev => !prev)}
+                    className="text-xs font-bold text-slate-600 hover:text-orange-600 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <span>{showManualAddPoi ? '− Hide Custom Landmark Form' : '+ Add an unindexed local landmark (Optional)'}</span>
+                  </button>
+
+                  {showManualAddPoi && (
+                    <div className="mt-3 p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3 animate-fade-in">
+                      <span className="text-xs font-bold text-slate-800 block">Custom Landmark Details</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                        <input
+                          type="text"
+                          value={newPoiName}
+                          onChange={e => setNewPoiName(e.target.value)}
+                          placeholder="Place name (e.g. TIDEL Park)"
+                          className="sm:col-span-2 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:border-orange-500"
+                        />
+                        <select
+                          value={newPoiCategory}
+                          onChange={e => setNewPoiCategory(e.target.value as any)}
+                          className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:border-orange-500"
+                        >
+                          <option value="hospital">Hospital</option>
+                          <option value="school">School</option>
+                          <option value="transit">Transit / Bus</option>
+                          <option value="supermarket">Grocery / Mall</option>
+                          <option value="college">College</option>
+                          <option value="gym">Gym / Fitness</option>
+                          <option value="bank">Bank / ATM</option>
+                          <option value="restaurant">Restaurant</option>
+                        </select>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={newPoiDist}
+                            onChange={e => setNewPoiDist(e.target.value)}
+                            placeholder="Km"
+                            className="w-16 px-2 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:border-orange-500 text-center font-bold"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddPoi}
+                            className="flex-1 py-2 rounded-xl bg-orange-600 text-white font-bold text-xs hover:bg-orange-700 cursor-pointer"
+                          >
+                            + Add
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

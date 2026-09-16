@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext';
 import { useLifestyle } from '../../context/LifestyleContext';
 import { propertyService } from '../../services/propertyService';
 import { Property } from '../../types';
+import { isPropertyWithinBudget } from '../../utils/budgetUtils';
 import { 
   MapPin, 
   Sparkles, 
@@ -190,9 +191,13 @@ export const HomeLocationMap: React.FC = () => {
   // Fetch properties matching active requirements
   useEffect(() => {
     propertyService.getProperties(requirements).then((props) => {
-      setProperties(props);
-      if (props.length > 0 && !activePropertyId) {
-        setActivePropertyId(props[0].id);
+      const userBudget = requirements.budgetMax || 0;
+      const eligible = userBudget > 0
+        ? props.filter(p => isPropertyWithinBudget(p, userBudget, requirements.intent))
+        : props;
+      setProperties(eligible);
+      if (eligible.length > 0 && (!activePropertyId || !eligible.some(p => p.id === activePropertyId))) {
+        setActivePropertyId(eligible[0].id);
       }
     });
   }, [requirements.city, requirements.intent, requirements.budgetMax, JSON.stringify(requirements.bhk)]);

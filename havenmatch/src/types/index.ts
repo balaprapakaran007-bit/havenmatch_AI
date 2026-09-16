@@ -96,6 +96,8 @@ export interface Property {
   amenities: string[];
   images: string[];
   featured?: boolean;
+  computedDistanceKm?: number;
+  distanceFromTarget?: string;
   status?: 'ACTIVE' | 'PENDING' | 'SOLD' | 'RENTED' | string;
   ownerId?: string;
   sellerId?: string;
@@ -117,6 +119,8 @@ export interface Property {
   };
 }
 
+export type BuyerType = 'Student' | 'Bachelor' | 'Family';
+
 export interface BuyerRequirements {
   intent: BuyerIntent;
   city: string;
@@ -129,6 +133,12 @@ export interface BuyerRequirements {
   furnishing?: FurnishingStatus[];
   vastuRequired?: boolean;
   parkingRequired?: boolean;
+  userType?: BuyerType;
+  buyerType?: BuyerType;
+  targetLocationName?: string;
+  targetCoordinates?: { lat: number; lng: number };
+  maxDistanceKm?: number;
+  isCustomDistance?: boolean;
 }
 
 export interface LifestyleProfile {
@@ -139,6 +149,12 @@ export interface LifestyleProfile {
   hasSchoolGoingKids: boolean;
   hasPets: boolean;
   atmospherePreference: 'Peaceful & Quiet' | 'Balanced Urban' | 'Vibrant & Connected';
+  userType?: BuyerType;
+  buyerType?: BuyerType;
+  targetLocationName?: string;
+  targetCoordinates?: { lat: number; lng: number };
+  maxDistanceKm?: number;
+  isCustomDistance?: boolean;
 }
 
 export interface DimensionScore {
@@ -165,6 +181,9 @@ export interface MatchResult {
   whyItMatches: string[];
   tradeOffs: string[];
   lifestyleSummary: string;
+  computedDistanceKm?: number;
+  distanceFromTarget?: string;
+  commuteEstimate?: { driveTime: string; walkTime?: string };
 }
 
 export type CardinalDirection = 
@@ -177,13 +196,18 @@ export type POICategory =
   | 'hospital' 
   | 'transit' 
   | 'school' 
+  | 'college'
   | 'shopping' 
   | 'supermarket'
   | 'park' 
   | 'techpark'
   | 'gym'
   | 'temple'
-  | 'airport';
+  | 'airport'
+  | 'fuel'
+  | 'restaurant'
+  | 'bank'
+  | string;
 
 export interface NearbyPlace {
   id: string;

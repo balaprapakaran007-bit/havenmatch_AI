@@ -151,34 +151,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const res = await callAPI<any>(action, payload);
 
-    const rawUser =
-      res?.user ||
-      res?.data?.user ||
-      (res?.data?.userId || res?.data?.id || res?.data?.email ? res.data : null) ||
-      (res?.userId || res?.email ? res : null);
-
-    if (!rawUser && !res?.success) {
-      throw new Error('Authentication failed. No user identity returned from server.');
+    if (!res || res.success === false) {
+      throw new Error(res?.error || 'Authentication failed. Please verify your credentials.');
     }
 
-    const userId =
-      rawUser?.id ||
-      rawUser?.userId ||
-      rawUser?._id ||
-      (cleanEmail ? `usr_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}` : `usr_${Date.now()}`);
+    const rawUser = res.user || res.data?.user;
+    const token = res.token || res.data?.token;
 
-    const userEmail = rawUser?.email || cleanEmail;
-    const userPhone = rawUser?.phone || cleanPhone || '';
+    if (!rawUser || !token || (!rawUser.userId && !rawUser.id)) {
+      throw new Error(res?.error || 'Authentication failed. Invalid user identity returned from server.');
+    }
+
+    const userId = rawUser.userId || rawUser.id;
+    const userEmail = rawUser.email || cleanEmail;
+    const userPhone = rawUser.phone || cleanPhone || '';
     const userName =
-      rawUser?.name?.trim() ||
+      rawUser.name?.trim() ||
+      rawUser.fullName?.trim() ||
       data.name?.trim() ||
       (cleanEmail ? cleanEmail.split('@')[0] : 'HavenMatch User');
 
-    const userRoleStr = (rawUser?.role || selectedRole || 'BUYER').toUpperCase();
+    const userRoleStr = (rawUser.role || selectedRole || 'BUYER').toUpperCase();
     const realRole: UserRole = (userRoleStr === 'SELLER' || userRoleStr === 'OWNER') ? 'SELLER' : 'BUYER';
 
     const authenticatedSession: UserSession = {
       id: userId,
+      userId: userId,
+      token: token,
       email: userEmail,
       phone: userPhone,
       name: userName,

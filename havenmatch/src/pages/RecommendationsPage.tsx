@@ -18,29 +18,44 @@ import {
   AlertCircle,
   Loader2,
   SlidersHorizontal,
-  ChevronDown
+  ChevronDown,
+  GraduationCap,
+  Briefcase,
+  User,
+  Users
 } from 'lucide-react';
 import { PropertyCard } from '../components/property/PropertyCard';
+import { isPropertyWithinBudget, getPropertyPrice } from '../utils/budgetUtils';
 
 export const RecommendationsPage: React.FC = () => {
   const navigate = useNavigate();
   const { requirements, setRequirements, matches, isLoadingMatches, refreshMatches } = useLifestyle();
   const { savedPropertyIds, toggleSaveProperty, comparePropertyIds } = useApp();
 
+  const buyerType = requirements.buyerType || (requirements as any).userType || 'IT Employee / Working Professional';
+  const isStudent = buyerType === 'Student';
+  const isBachelor = buyerType === 'Bachelor';
+  const defaultIntent = (requirements.intent === 'RENT' || isStudent || isBachelor) ? 'RENT' : requirements.intent === 'BUY' ? 'BUY' : 'ALL';
+
   const [properties, setProperties] = useState<Property[]>([]);
   const [isLoadingProps, setIsLoadingProps] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [intentFilter, setIntentFilter] = useState<'ALL' | 'BUY' | 'RENT'>('ALL');
+  const [intentFilter, setIntentFilter] = useState<'ALL' | 'BUY' | 'RENT'>(defaultIntent);
   const [filterBhk, setFilterBhk] = useState<number | 'ALL'>('ALL');
   const [selectedLocality, setSelectedLocality] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<'MATCH' | 'PRICE_ASC' | 'PRICE_DESC'>('MATCH');
+
+  useEffect(() => {
+    const intended = (requirements.intent === 'RENT' || isStudent || isBachelor) ? 'RENT' : requirements.intent === 'BUY' ? 'BUY' : 'ALL';
+    setIntentFilter(intended);
+  }, [requirements.intent, requirements.buyerType, isStudent, isBachelor]);
 
   useEffect(() => {
     let isMounted = true;
     setIsLoadingProps(true);
 
     propertyService
-      .getProperties()
+      .getProperties(requirements)
       .then((props) => {
         if (isMounted) {
           setProperties(props);
@@ -73,8 +88,23 @@ export const RecommendationsPage: React.FC = () => {
     'Saibaba Colony'
   ];
 
+  const userBudget = Number(requirements.budgetMax || (requirements as any).budget || 0);
+
   const displayedProperties = useMemo(() => {
-    let list = [...properties];
+    // Deduplicate properties by propertyId / id
+    const uniqueMap = new Map<string, Property>();
+    for (const p of properties) {
+      const pId = p.id || (p as any).propertyId || String((p as any)._id);
+      if (pId && !uniqueMap.has(pId)) {
+        uniqueMap.set(pId, p);
+      }
+    }
+    let list = Array.from(uniqueMap.values());
+
+    // 1. HARD MAXIMUM BUDGET FILTER — MUST HAPPEN BEFORE SORTING, RANKING, AND AI MATCHING
+    if (userBudget > 0) {
+      list = list.filter((p) => isPropertyWithinBudget(p, userBudget, intentFilter !== 'ALL' ? intentFilter : requirements.intent));
+    }
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -96,7 +126,7 @@ export const RecommendationsPage: React.FC = () => {
     }
 
     if (filterBhk !== 'ALL') {
-      list = list.filter(p => filterBhk === 4 ? p.bhk >= 4 : p.bhk === filterBhk);
+      list = list.filter(p => filterBhk === 5 ? p.bhk >= 5 : p.bhk === filterBhk);
     }
 
     if (selectedLocality !== 'ALL' && selectedLocality !== 'All Localities') {
@@ -107,8 +137,8 @@ export const RecommendationsPage: React.FC = () => {
       const idA = a.id || (a as any).propertyId || '';
       const idB = b.id || (b as any).propertyId || '';
       if (sortBy === 'MATCH') {
-        const scoreA = matches[idA]?.overallScore ?? 75;
-        const scoreB = matches[idB]?.overallScore ?? 75;
+        const scoreA = matches[idA]?.overallScore ?? (a as any).matchScore ?? 0;
+        const scoreB = matches[idB]?.overallScore ?? (b as any).matchScore ?? 0;
         return scoreB - scoreA;
       }
       if (sortBy === 'PRICE_ASC') return a.price - b.price;
@@ -117,11 +147,19 @@ export const RecommendationsPage: React.FC = () => {
     });
 
     return list;
-  }, [properties, searchQuery, intentFilter, filterBhk, selectedLocality, sortBy, matches]);
+  }, [properties, searchQuery, intentFilter, filterBhk, selectedLocality, sortBy, matches, userBudget, requirements.intent]);
+
+  // FINAL SAFETY FILTER: Enforce hard budget limit immediately before rendering results
+  const safeProperties = useMemo(() => {
+    if (userBudget > 0) {
+      return displayedProperties.filter((property) => isPropertyWithinBudget(property, userBudget, intentFilter !== 'ALL' ? intentFilter : requirements.intent));
+    }
+    return displayedProperties;
+  }, [displayedProperties, userBudget, intentFilter, requirements.intent]);
 
   const top10Properties = useMemo(() => {
-    return displayedProperties.slice(0, 10);
-  }, [displayedProperties]);
+    return safeProperties.slice(0, 10);
+  }, [safeProperties]);
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] py-6 sm:py-8 pb-24 md:pb-12">
@@ -147,7 +185,9 @@ export const RecommendationsPage: React.FC = () => {
               {isLoadingProps
                 ? 'Evaluating lifestyle compatibility and verified local amenities...'
                 : top10Properties.length > 0
-                ? `${top10Properties.length} homes selected for your lifestyle, commute, and budget.`
+                ? `${top10Properties.length} ${top10Properties.length === 1 ? 'home' : 'homes'} selected for your lifestyle, commute, and budget.`
+                : userBudget > 0
+                ? 'No properties found within your budget.'
                 : 'No homes match your current filter combination.'}
             </p>
           </div>
@@ -162,6 +202,54 @@ export const RecommendationsPage: React.FC = () => {
             </Link>
           )}
         </div>
+
+        {/* Active Persona & Proximity Context Banner */}
+        {requirements?.buyerType && (
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-3xl bg-white border border-orange-200 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                requirements.buyerType === 'Student' ? 'bg-orange-100 text-orange-600' :
+                requirements.buyerType === 'Bachelor' ? 'bg-amber-100 text-amber-600' :
+                requirements.buyerType === 'Family' ? 'bg-rose-100 text-rose-600' :
+                'bg-teal-100 text-teal-700'
+              }`}>
+                {requirements.buyerType === 'Student' ? <GraduationCap className="w-5 h-5" /> :
+                 requirements.buyerType === 'Bachelor' ? <User className="w-5 h-5" /> :
+                 requirements.buyerType === 'Family' ? <Users className="w-5 h-5" /> :
+                 <Briefcase className="w-5 h-5" />}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-orange-600">
+                    {requirements.buyerType} Mode
+                  </span>
+                  {requirements.maxDistanceKm && (
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-orange-50 text-orange-800 border border-orange-200">
+                      Target: Within {requirements.maxDistanceKm} km
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-sm sm:text-base font-black text-slate-900 mt-0.5">
+                  {requirements.targetLocationName
+                    ? <span>Properties prioritized near <span className="text-orange-600">{requirements.targetLocationName}</span></span>
+                    : requirements.buyerType === 'Bachelor'
+                    ? <span>Showing rentals suitable for <span className="text-orange-600">Bachelors & Single Tenants</span></span>
+                    : requirements.buyerType === 'Family'
+                    ? <span>Showing verified <span className="text-orange-600">Family Homes & Gated Communities</span></span>
+                    : <span>Showing curated AI matches</span>}
+                </h3>
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigate('/ai-matching')}
+              className="px-3.5 py-2 rounded-xl border border-orange-200 text-orange-800 hover:bg-orange-50 font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <span>Adjust Criteria</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Top Search & Filter Bar */}
         <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-4">
@@ -208,7 +296,7 @@ export const RecommendationsPage: React.FC = () => {
 
               {/* BHK Pills */}
               <div className="flex items-center gap-1">
-                {(['ALL', 2, 3, 4] as const).map((bhk) => (
+                {(['ALL', 1, 2, 3, 4, 5] as const).map((bhk) => (
                   <button
                     key={bhk}
                     onClick={() => setFilterBhk(bhk)}
@@ -218,7 +306,7 @@ export const RecommendationsPage: React.FC = () => {
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
-                    {bhk === 'ALL' ? 'All BHK' : bhk === 4 ? '4+ BHK' : `${bhk} BHK`}
+                    {bhk === 'ALL' ? 'All BHK' : bhk === 5 ? '5+ BHK' : `${bhk} BHK`}
                   </button>
                 ))}
               </div>
@@ -267,9 +355,13 @@ export const RecommendationsPage: React.FC = () => {
         ) : top10Properties.length === 0 ? (
           <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm space-y-3">
             <Compass className="w-12 h-12 text-slate-300 mx-auto mb-2" />
-            <h3 className="text-lg font-bold text-slate-800">No properties match your exact filters.</h3>
+            <h3 className="text-lg font-bold text-slate-800">
+              {userBudget > 0 ? "No properties found within your budget." : "No properties match your exact filters."}
+            </h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              Try broadening your budget, selecting another locality, or resetting your filters.
+              {userBudget > 0
+                ? `We couldn't find any verified listings under ₹${userBudget.toLocaleString('en-IN')}. Try increasing your maximum budget or exploring neighboring localities.`
+                : "Try broadening your budget, selecting another locality, or resetting your filters."}
             </p>
             <button
               onClick={() => {

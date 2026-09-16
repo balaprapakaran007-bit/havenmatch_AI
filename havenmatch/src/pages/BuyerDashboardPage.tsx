@@ -25,6 +25,7 @@ import {
   SlidersHorizontal
 } from 'lucide-react';
 import { PropertyCard } from '../components/property/PropertyCard';
+import { isPropertyWithinBudget } from '../utils/budgetUtils';
 
 export const BuyerDashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -39,14 +40,21 @@ export const BuyerDashboardPage: React.FC = () => {
 
   useEffect(() => {
     visitService.getVisits().then(setVisits);
-    propertyService.getProperties().then((props) => {
-      setAllProperties(props);
-      if (props.length > 0) {
-        setTopMatch(props[0]);
-        setRecommendedList(props.slice(1, 4));
+    propertyService.getProperties(requirements).then((props) => {
+      const userBudget = requirements.budgetMax || 0;
+      const eligible = userBudget > 0
+        ? props.filter((p) => isPropertyWithinBudget(p, userBudget, requirements.intent))
+        : props;
+      setAllProperties(eligible);
+      if (eligible.length > 0) {
+        setTopMatch(eligible[0]);
+        setRecommendedList(eligible.slice(1, 4));
+      } else {
+        setTopMatch(null);
+        setRecommendedList([]);
       }
     });
-  }, []);
+  }, [requirements]);
 
   const savedProperties = allProperties.filter((p) => savedPropertyIds.includes(p.id));
   const userName = userSession?.name || (userSession?.email ? userSession.email.split('@')[0] : 'Home Buyer');
@@ -239,7 +247,30 @@ export const BuyerDashboardPage: React.FC = () => {
             </div>
 
             {activeTab === 'MATCHES' && (
-              <>
+              allProperties.length === 0 ? (
+                <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-sm space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center mx-auto">
+                    <SlidersHorizontal className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    {requirements.budgetMax && requirements.budgetMax > 0
+                      ? "No properties found within your budget."
+                      : "No properties found matching your criteria."}
+                  </h3>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    {requirements.budgetMax && requirements.budgetMax > 0
+                      ? `No verified properties found within ₹${requirements.budgetMax.toLocaleString('en-IN')}. Try adjusting your budget or exploring other areas.`
+                      : "Try broadening your filters or checking back later for newly verified listings."}
+                  </p>
+                  <Link
+                    to="/ai-matching"
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-orange-600 text-white font-bold text-xs shadow-sm"
+                  >
+                    Adjust Match Criteria
+                  </Link>
+                </div>
+              ) : (
+                <>
                 {/* "Your Top Match" Featured Card (Matching Screen 6) */}
                 {topMatch && (
                   <div className="space-y-3">
@@ -348,6 +379,7 @@ export const BuyerDashboardPage: React.FC = () => {
                   </div>
                 </div>
               </>
+              )
             )}
 
             {/* Shortlist Tab */}

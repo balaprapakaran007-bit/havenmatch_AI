@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Property, MatchResult } from '../../types';
 import { useApp } from '../../context/AppContext';
+import { useLifestyle } from '../../context/LifestyleContext';
+import { calculateDistanceKm, resolveLandmarkCoordinates, formatCommuteEstimate } from '../../utils/geoUtils';
 import { 
   Heart, 
   Scale, 
@@ -39,6 +41,19 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, match, onC
     showToast,
     userSession
   } = useApp();
+  const { requirements } = useLifestyle();
+
+  const activeBuyerType = requirements?.buyerType || requirements?.userType || 'Bachelor';
+  const targetName = requirements?.targetLocationName;
+  const targetCoords = requirements?.targetCoordinates || (targetName ? resolveLandmarkCoordinates(targetName) : undefined);
+
+  let computedDist = match?.computedDistanceKm ?? property.computedDistanceKm;
+  if (computedDist === undefined && property.coordinates?.lat && targetCoords?.lat) {
+    computedDist = calculateDistanceKm(property.coordinates.lat, property.coordinates.lng, targetCoords.lat, targetCoords.lng);
+  }
+
+  const distanceFromTarget = match?.distanceFromTarget || property.distanceFromTarget || (computedDist !== undefined && targetName ? `${computedDist} km from ${targetName}` : undefined);
+  const commuteEst = match?.commuteEstimate || (computedDist !== undefined ? formatCommuteEstimate(computedDist) : undefined);
 
   const [showContactModal, setShowContactModal] = useState(false);
   const [showWhyModal, setShowWhyModal] = useState(false);
@@ -63,15 +78,14 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, match, onC
 
   const formattedPrice = formatPrice(property);
 
-  const matchScore = match?.overallScore || (82 + ((property.id ? property.id.charCodeAt(property.id.length - 1) : 0) % 12));
-  const matchTag = match?.tag || (matchScore >= 90 ? 'Top Lifestyle Fit' : matchScore >= 80 ? 'Best Value Match' : 'Recommended');
+  const rawScore = match?.overallScore ?? (property as any).matchScore ?? (property as any).score;
+  const matchScore = typeof rawScore === 'number' ? rawScore : undefined;
+  const matchTag = matchScore !== undefined
+    ? (match?.tag || (matchScore >= 90 ? 'Top Lifestyle Fit' : matchScore >= 80 ? 'Best Value Match' : 'Recommended'))
+    : undefined;
 
-  // Highlight points (3 bullets)
-  const matchHighlights = match?.whyItMatches?.slice(0, 3) || [
-    `Within defined budget range (${formattedPrice})`,
-    `Located in high-demand ${property.locality || 'prime'} corridor`,
-    `Vastu compliant ${property.facing || 'East'} facing ${property.bhk || 2} BHK layout`
-  ];
+  // Real match highlights only (no fake hardcoded fallbacks)
+  const matchHighlights = match?.whyItMatches && match.whyItMatches.length > 0 ? match.whyItMatches.slice(0, 3) : [];
 
   // Derive commute & location highlights
   const localityLower = (property.locality || '').toLowerCase();
@@ -106,11 +120,16 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, match, onC
     e.preventDefault();
     setIsSending(true);
     try {
-      const buyerId = userSession?.userId || userSession?.email || 'buyer-web';
+      const buyerId = userSession?.userId || userSession?.id;
+      const token = userSession?.token || localStorage.getItem('havenmatch_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+
       await fetch('/api/interests/express', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
+          token,
           propertyId: property.id,
           buyerId,
           sellerId: property.seller?.id || property.sellerId || property.seller?.email || 'owner@havenmatch.ai',
@@ -141,21 +160,37 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, match, onC
           onClick={handleNavigate}
           className="relative aspect-[16/10] overflow-hidden bg-slate-100 cursor-pointer"
         >
-          <img
-            src={property.images?.[0] || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80'}
-            alt={property.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            loading="lazy"
-          />
+          {property.images && property.images.length > 0 && property.images[0] ? (
+            <img
+              src={property.images[0]}
+              alt={property.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400 p-4">
+              <span className="text-xs font-bold text-slate-500">No Image Available</span>
+            </div>
+          )}
 
           {/* Top Badges */}
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
-            {/* Match Score Badge */}
-            <div className="pointer-events-auto flex items-center gap-1.5 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-full shadow-haven-sm border border-orange-100">
-              <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span>
-              <span className="text-sm font-extrabold text-orange-800 tracking-tight">
-                {matchScore}% Match
-              </span>
+            {/* Match Score & Proximity Badges */}
+            <div className="pointer-events-auto flex items-center gap-1.5">
+              {matchScore !== undefined && (
+                <div className="flex items-center gap-1.5 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-full shadow-haven-sm border border-orange-100">
+                  <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span>
+                  <span className="text-sm font-extrabold text-orange-800 tracking-tight">
+                    {matchScore}% Match
+                  </span>
+                </div>
+              )}
+              {computedDist !== undefined && (
+                <div className="hidden sm:flex items-center gap-1 bg-slate-900/85 backdrop-blur-md px-2.5 py-1 rounded-full text-white text-[11px] font-bold shadow-xs">
+                  <Navigation className="w-3 h-3 text-orange-400" />
+                  <span>{computedDist} km</span>
+                </div>
+              )}
             </div>
 
             {/* Save & Compare Buttons */}
@@ -221,9 +256,11 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, match, onC
                   </span>
                 )}
               </div>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-orange-50 text-orange-800 border border-orange-200/60">
-                {matchTag}
-              </span>
+              {matchTag && (
+                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-orange-50 text-orange-800 border border-orange-200/60">
+                  {matchTag}
+                </span>
+              )}
             </div>
 
             {/* Title & Locality */}
@@ -239,11 +276,29 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, match, onC
               <span className="truncate">{property.locality}, {property.city}</span>
             </p>
 
-            {/* Commute Tag */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-50/70 border border-orange-100 text-[11px] font-medium text-orange-900 mb-2.5">
-              <Clock className="w-3 h-3 text-orange-600 shrink-0" />
-              <span className="truncate">{commuteInfo}</span>
-            </div>
+            {/* Proximity Distance Badge */}
+            {distanceFromTarget ? (
+              <div className="flex items-center justify-between gap-1.5 px-3 py-1.5 rounded-xl bg-orange-100/80 border border-orange-200/90 text-xs font-black text-orange-950 mb-2.5 shadow-2xs">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Navigation className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                  <span className="truncate font-extrabold">📍 {distanceFromTarget}</span>
+                </div>
+                {commuteEst?.walkTime ? (
+                  <span className="text-[10px] font-extrabold text-orange-800 bg-white/80 px-2 py-0.5 rounded-md shrink-0">
+                    {commuteEst.walkTime}
+                  </span>
+                ) : commuteEst?.driveTime ? (
+                  <span className="text-[10px] font-extrabold text-orange-800 bg-white/80 px-2 py-0.5 rounded-md shrink-0">
+                    {commuteEst.driveTime}
+                  </span>
+                ) : null}
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-50/70 border border-orange-100 text-[11px] font-medium text-orange-900 mb-2.5">
+                <Clock className="w-3 h-3 text-orange-600 shrink-0" />
+                <span className="truncate">{commuteInfo}</span>
+              </div>
+            )}
 
             {/* Key Specs Bar */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 py-2 px-3 bg-slate-50 rounded-xl text-xs text-slate-700 mb-3 border border-slate-100">
@@ -265,29 +320,31 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, match, onC
             </div>
 
             {/* "Why It Matches" Explainability Box */}
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowWhyModal(true);
-              }}
-              className="p-3 rounded-xl bg-orange-50/70 border border-orange-100/90 text-xs mb-3 space-y-1.5 cursor-pointer hover:bg-orange-100/60 transition-colors group/why"
-            >
-              <div className="flex items-center justify-between text-orange-950 font-bold mb-1">
-                <span className="flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5 text-orange-600" />
-                  <span>Why this home matches you</span>
-                </span>
-                <span className="text-[10px] text-orange-700 font-extrabold group-hover/why:underline flex items-center gap-0.5">
-                  Breakdown <ChevronRight className="w-2.5 h-2.5" />
-                </span>
-              </div>
-              {matchHighlights.map((reason, idx) => (
-                <div key={idx} className="flex items-start gap-1.5 text-slate-700">
-                  <Check className="w-3.5 h-3.5 text-orange-600 shrink-0 mt-0.5" />
-                  <span className="line-clamp-1">{reason}</span>
+            {matchHighlights.length > 0 && (
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowWhyModal(true);
+                }}
+                className="p-3 rounded-xl bg-orange-50/70 border border-orange-100/90 text-xs mb-3 space-y-1.5 cursor-pointer hover:bg-orange-100/60 transition-colors group/why"
+              >
+                <div className="flex items-center justify-between text-orange-950 font-bold mb-1">
+                  <span className="flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+                    <span>Why this home matches you</span>
+                  </span>
+                  <span className="text-[10px] text-orange-700 font-extrabold group-hover/why:underline flex items-center gap-0.5">
+                    Breakdown <ChevronRight className="w-2.5 h-2.5" />
+                  </span>
                 </div>
-              ))}
-            </div>
+                {matchHighlights.map((reason, idx) => (
+                  <div key={idx} className="flex items-start gap-1.5 text-slate-700">
+                    <Check className="w-3.5 h-3.5 text-orange-600 shrink-0 mt-0.5" />
+                    <span className="line-clamp-1">{reason}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Water & Power spec chips */}
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 mb-4">
@@ -489,23 +546,25 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, match, onC
             {/* Seller Card */}
             <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center gap-3">
               <div className="w-11 h-11 rounded-full bg-orange-100 border-2 border-white flex items-center justify-center text-orange-700 font-extrabold text-sm shrink-0 shadow-xs">
-                {(property.seller?.name || 'Dr. K. Senthil Kumar').charAt(0)}
+                {(property.seller?.name || (property as any).sellerName || 'Owner').charAt(0)}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <h4 className="font-bold text-sm text-slate-900 truncate">
-                    {property.seller?.name || 'Dr. K. Senthil Kumar'}
+                    {property.seller?.name || (property as any).sellerName || 'Property Owner'}
                   </h4>
                   <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
                     Verified
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 truncate">
-                  {property.seller?.role || 'Individual Owner'} • {property.locality}
+                  {property.seller?.role || 'Individual Owner'} • {property.locality || property.city}
                 </p>
-                <p className="text-xs font-semibold text-slate-700 mt-0.5">
-                  {property.seller?.phone || '+91 98422 11223'}
-                </p>
+                {property.seller?.phone ? (
+                  <p className="text-xs font-semibold text-slate-700 mt-0.5">
+                    {property.seller.phone}
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -534,13 +593,15 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, match, onC
                 </div>
 
                 <div className="flex items-center gap-2 pt-1">
-                  <a
-                    href={`tel:${property.seller?.phone || '+919842211223'}`}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all text-center"
-                  >
-                    <Phone className="w-3.5 h-3.5 text-slate-600" />
-                    <span>Direct Call</span>
-                  </a>
+                  {property.seller?.phone ? (
+                    <a
+                      href={`tel:${property.seller.phone}`}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all text-center"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Direct Call</span>
+                    </a>
+                  ) : null}
 
                   <button
                     type="submit"

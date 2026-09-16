@@ -215,8 +215,8 @@ export const BasicDetailsPage: React.FC = () => {
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5">
               BHK Space (Select all that apply)
             </label>
-            <div className="grid grid-cols-4 gap-3">
-              {[1, 2, 3, 4].map((bhk) => {
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+              {[1, 2, 3, 4, 5].map((bhk) => {
                 const isSelected = selectedBhk.includes(bhk);
                 return (
                   <button
@@ -230,7 +230,7 @@ export const BasicDetailsPage: React.FC = () => {
                     }`}
                   >
                     {isSelected && <Check className="w-3.5 h-3.5 text-orange-600" />}
-                    <span>{bhk === 4 ? '4+ BHK' : `${bhk} BHK`}</span>
+                    <span>{bhk === 5 ? '5+ BHK' : `${bhk} BHK`}</span>
                   </button>
                 );
               })}
