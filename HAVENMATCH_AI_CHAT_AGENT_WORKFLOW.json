@@ -1,0 +1,475 @@
+{
+  "_platform": "agentbuilder",
+  "_version": 1,
+  "_exportedAt": "2026-09-17T06:52:26.231Z",
+  "_fingerprint": "YWN0aW9uOmFpLWFnZW50LW9yY2hlc3RyYXRvcnxhY3Rpb246YWktYWdlbnQtb3Jj",
+  "name": "HAVENMATCH_AI — CONVERSATIONAL REAL ESTATE AGENT",
+  "nodes": [
+    {
+      "id": "chatTrigger-1788756478957005",
+      "data": {
+        "label": "Chat Trigger",
+        "inputs": {
+          "title": "AI Real Estate Assistant",
+          "isPublic": false,
+          "subtitle": "Tell me what property you are looking for",
+          "placeholder": "e.g. 2BHK in Coimbatore under 50 lakhs",
+          "allowedRoles": "admin, staff",
+          "jwtAlgorithm": "HS256",
+          "responseMode": "Last Node",
+          "roleClaimKey": "role",
+          "sessionClaim": "sub",
+          "authentication": "none",
+          "initialMessage": "Hi! I'm your AI real estate assistant. Are you looking to buy or rent a property?",
+          "requireRoleCheck": false,
+          "requireButtonClick": false,
+          "loadPreviousSession": false
+        },
+        "toolId": "chatTrigger",
+        "toolData": {
+          "id": "chatTrigger",
+          "displayName": "Chat Trigger",
+          "category": "Triggers",
+          "provider": "core",
+          "icon": "MessageSquare",
+          "description": "Start workflow from chat"
+        },
+        "isTrigger": true,
+        "isPrimaryTrigger": true
+      },
+      "type": "manual-trigger",
+      "width": 220,
+      "height": 99,
+      "position": {
+        "x": 100,
+        "y": 200
+      }
+    },
+    {
+      "id": "guardrails.validate-1788756494505006",
+      "data": {
+        "label": "AI Guardrails",
+        "inputs": {
+          "text": "{{$node[\"chatTrigger-1788756478957005\"].json[\"message\"]}}",
+          "model": "antigravity-preview-05-2026",
+          "action": "Check Text for Violations",
+          "provider": "gemini",
+          "guardrails": [
+            {
+              "type": "Personal Data (PII)",
+              "config": {
+                "type": "Selected",
+                "entities": [
+                  "Credit Card",
+                  "Email Address",
+                  "Phone Number",
+                  "Location"
+                ]
+              }
+            },
+            {
+              "type": "Secret Keys",
+              "config": {
+                "permissiveness": "Balanced"
+              }
+            }
+          ],
+          "credentialId": "65f02bb3-2543-4e82-bdf4-c0bab0018fc9"
+        },
+        "toolId": "guardrails.validate",
+        "toolData": {
+          "id": "guardrails.validate",
+          "displayName": "AI Guardrails",
+          "category": "AI / LLM",
+          "provider": "guardrails"
+        }
+      },
+      "type": "action",
+      "width": 220,
+      "height": 94,
+      "position": {
+        "x": 380,
+        "y": 200
+      }
+    },
+    {
+      "id": "stopError-1788756762933011",
+      "data": {
+        "label": "Stop Workflow",
+        "inputs": {
+          "errorType": "errorMessage",
+          "errorMessage": "Input blocked by AI safety guardrails."
+        },
+        "toolId": "stopError",
+        "toolData": {
+          "id": "stopError",
+          "displayName": "Stop Workflow",
+          "category": "Logic & Flow Control"
+        }
+      },
+      "type": "action",
+      "width": 220,
+      "height": 94,
+      "position": {
+        "x": 380,
+        "y": 380
+      }
+    },
+    {
+      "id": "ai-agent-orchestrator-1788756504902007",
+      "data": {
+        "label": "AI Agent (Intent Classifier)",
+        "inputs": {
+          "userPrompt": "",
+          "outputFormat": "text",
+          "promptSource": "define",
+          "systemPrompt": "You are an intelligent real estate intake classifier. Understand the user requirements.",
+          "requireOutputFormat": false
+        },
+        "toolId": "ai-agent-orchestrator",
+        "toolData": {
+          "id": "ai-agent-orchestrator",
+          "displayName": "AI Agent",
+          "category": "AI / LLM",
+          "provider": "aiagent"
+        },
+        "connectedHandles": [
+          "chat-model",
+          "memory"
+        ]
+      },
+      "type": "action",
+      "width": 220,
+      "height": 94,
+      "position": {
+        "x": 660,
+        "y": 200
+      }
+    },
+    {
+      "id": "gemini-1788757092048012",
+      "data": {
+        "label": "Gemini 3.5 Flash Lite",
+        "inputs": {
+          "model": "gemini-3.5-flash-lite",
+          "resource": "Text",
+          "operation": "Message a Model",
+          "credentialId": "65f02bb3-2543-4e82-bdf4-c0bab0018fc9"
+        },
+        "toolId": "gemini",
+        "toolData": {
+          "id": "gemini",
+          "displayName": "Google Gemini",
+          "type": "chat model"
+        },
+        "isSubNode": true
+      },
+      "type": "action",
+      "width": 100,
+      "height": 75,
+      "position": {
+        "x": 660,
+        "y": 60
+      }
+    },
+    {
+      "id": "simple-memory-1788757097639013",
+      "data": {
+        "label": "Simple Memory",
+        "inputs": {
+          "sessionId": "auto",
+          "contextWindowLength": 5
+        },
+        "toolId": "simple-memory",
+        "toolData": {
+          "id": "simple-memory",
+          "displayName": "Simple Memory",
+          "subCategory": "Memory"
+        },
+        "isSubNode": true
+      },
+      "type": "action",
+      "width": 100,
+      "height": 75,
+      "position": {
+        "x": 780,
+        "y": 60
+      }
+    },
+    {
+      "id": "informationExtractor-1788756523495008",
+      "data": {
+        "label": "Extract Information",
+        "inputs": {
+          "text": "{{$node[\"chatTrigger-1788756478957005\"].json[\"message\"]}}",
+          "model": "gemini-3.5-flash-lite",
+          "provider": "gemini",
+          "schemaType": "attribute_descriptions",
+          "credentialId": "65f02bb3-2543-4e82-bdf4-c0bab0018fc9",
+          "attributeDescriptions": [
+            {
+              "name": "intent",
+              "type": "string",
+              "required": false,
+              "description": "Whether the user wants to buy, rent, sell, or find a property."
+            },
+            {
+              "name": "property_type",
+              "type": "string",
+              "required": false,
+              "description": "Desired property type such as apartment, villa, house, plot, or independent house."
+            },
+            {
+              "name": "location",
+              "type": "string",
+              "required": false,
+              "description": "Preferred city, area, neighborhood, or locality."
+            },
+            {
+              "name": "budget",
+              "type": "string",
+              "required": false,
+              "description": "User's stated purchase price or rental budget."
+            },
+            {
+              "name": "bedrooms",
+              "type": "string",
+              "required": false,
+              "description": "Desired number of bedrooms or BHK."
+            },
+            {
+              "name": "amenities",
+              "type": "string",
+              "required": false,
+              "description": "Desired features such as parking, gym, security, balcony, lift, etc."
+            },
+            {
+              "name": "timeline",
+              "type": "string",
+              "required": false,
+              "description": "When the user wants to buy or rent the property."
+            }
+          ]
+        },
+        "toolId": "informationExtractor",
+        "toolData": {
+          "id": "informationExtractor",
+          "displayName": "Extract Information",
+          "category": "AI / LLM"
+        }
+      },
+      "type": "action",
+      "width": 220,
+      "height": 94,
+      "position": {
+        "x": 940,
+        "y": 200
+      }
+    },
+    {
+      "id": "core.set-1788756538805009",
+      "data": {
+        "label": "Set Fields",
+        "inputs": {
+          "mode": "manual",
+          "assignments": [
+            {
+              "name": "intent",
+              "type": "string",
+              "value": "{{$node[\"informationExtractor-1788756523495008\"].json[\"intent\"]}}",
+              "valueType": "fixed"
+            },
+            {
+              "name": "property_type",
+              "type": "string",
+              "value": "{{$node[\"informationExtractor-1788756523495008\"].json[\"property_type\"]}}",
+              "valueType": "fixed"
+            },
+            {
+              "name": "location",
+              "type": "string",
+              "value": "{{$node[\"informationExtractor-1788756523495008\"].json[\"location\"]}}",
+              "valueType": "fixed"
+            },
+            {
+              "name": "budget",
+              "type": "string",
+              "value": "{{$node[\"informationExtractor-1788756523495008\"].json[\"budget\"]}}",
+              "valueType": "fixed"
+            },
+            {
+              "name": "bedrooms",
+              "type": "string",
+              "value": "{{$node[\"informationExtractor-1788756523495008\"].json[\"bedrooms\"]}}",
+              "valueType": "fixed"
+            }
+          ],
+          "includeBinaryData": true,
+          "supportDotNotation": true
+        },
+        "toolId": "core.set",
+        "toolData": {
+          "id": "core.set",
+          "displayName": "Set Fields",
+          "category": "Core  Utilities"
+        }
+      },
+      "type": "action",
+      "width": 220,
+      "height": 94,
+      "position": {
+        "x": 1220,
+        "y": 200
+      }
+    },
+    {
+      "id": "ai-agent-orchestrator-1788770499566001",
+      "data": {
+        "label": "AI Agent (HavenMatch Assistant)",
+        "inputs": {
+          "userPrompt": "You are HavenMatch, a real-estate assistant.\r\n\r\nBased on the extracted property requirements below, reply naturally to the user.\r\n\r\nRequirements:\r\n{{JSON.stringify($node[\"Extract Information\"].json)}}\r\n\r\nRules:\r\n- Reply like a real-estate assistant.\r\n- Do not return JSON.\r\n- Do not mention extraction, workflow, nodes, schema, or internal processing.\r\n- If all important details are available, briefly confirm the requirement and say you can help find matching properties.\r\n- If an important detail is missing, ask one simple question.\r\n- Keep the response short and conversational.",
+          "outputFormat": "text",
+          "promptSource": "define",
+          "systemPrompt": "",
+          "requireOutputFormat": false
+        },
+        "toolId": "ai-agent-orchestrator",
+        "toolData": {
+          "id": "ai-agent-orchestrator",
+          "displayName": "AI Agent",
+          "category": "AI / LLM",
+          "provider": "aiagent"
+        },
+        "connectedHandles": [
+          "chat-model"
+        ]
+      },
+      "type": "action",
+      "width": 240,
+      "height": 94,
+      "position": {
+        "x": 1500,
+        "y": 200
+      }
+    },
+    {
+      "id": "gemini-1788772467044002",
+      "data": {
+        "label": "Gemini 3.5 Flash Lite",
+        "inputs": {
+          "model": "gemini-3.5-flash-lite",
+          "resource": "Text",
+          "operation": "Message a Model",
+          "credentialId": "65f02bb3-2543-4e82-bdf4-c0bab0018fc9"
+        },
+        "toolId": "gemini",
+        "toolData": {
+          "id": "gemini",
+          "displayName": "Google Gemini",
+          "type": "chat model"
+        },
+        "isSubNode": true
+      },
+      "type": "action",
+      "width": 100,
+      "height": 75,
+      "position": {
+        "x": 1500,
+        "y": 60
+      }
+    },
+    {
+      "id": "chatAction-1788772772771004",
+      "data": {
+        "label": "Send Message",
+        "inputs": {
+          "message": "{{$node[\"ai-agent-orchestrator-1788770499566001\"].json[\"text\"]}}",
+          "operation": "Send Message"
+        },
+        "toolId": "chatAction",
+        "toolData": {
+          "id": "chatAction",
+          "displayName": "Chat Action",
+          "category": "Human Review"
+        }
+      },
+      "type": "action",
+      "width": 220,
+      "height": 94,
+      "position": {
+        "x": 1800,
+        "y": 200
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-chat-guard",
+      "type": "custom",
+      "source": "chatTrigger-1788756478957005",
+      "target": "guardrails.validate-1788756494505006"
+    },
+    {
+      "id": "e-guard-safe",
+      "type": "custom",
+      "source": "guardrails.validate-1788756494505006",
+      "target": "ai-agent-orchestrator-1788756504902007",
+      "sourceHandle": "safe"
+    },
+    {
+      "id": "e-guard-blocked",
+      "type": "custom",
+      "source": "guardrails.validate-1788756494505006",
+      "target": "stopError-1788756762933011",
+      "sourceHandle": "blocked"
+    },
+    {
+      "id": "e-gemini-1",
+      "type": "custom",
+      "source": "gemini-1788757092048012",
+      "target": "ai-agent-orchestrator-1788756504902007",
+      "sourceHandle": "subnode-out",
+      "targetHandle": "chat-model"
+    },
+    {
+      "id": "e-memory-1",
+      "type": "custom",
+      "source": "simple-memory-1788757097639013",
+      "target": "ai-agent-orchestrator-1788756504902007",
+      "sourceHandle": "subnode-out",
+      "targetHandle": "memory"
+    },
+    {
+      "id": "e-agent-extract",
+      "type": "custom",
+      "source": "ai-agent-orchestrator-1788756504902007",
+      "target": "informationExtractor-1788756523495008"
+    },
+    {
+      "id": "e-extract-set",
+      "type": "custom",
+      "source": "informationExtractor-1788756523495008",
+      "target": "core.set-1788756538805009"
+    },
+    {
+      "id": "e-set-agent2",
+      "type": "custom",
+      "source": "core.set-1788756538805009",
+      "target": "ai-agent-orchestrator-1788770499566001"
+    },
+    {
+      "id": "e-gemini-2",
+      "type": "custom",
+      "source": "gemini-1788772467044002",
+      "target": "ai-agent-orchestrator-1788770499566001",
+      "sourceHandle": "subnode-out",
+      "targetHandle": "chat-model"
+    },
+    {
+      "id": "e-agent2-chatAction",
+      "type": "custom",
+      "source": "ai-agent-orchestrator-1788770499566001",
+      "target": "chatAction-1788772772771004"
+    }
+  ]
+}

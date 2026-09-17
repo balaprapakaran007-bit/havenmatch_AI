@@ -1,0 +1,638 @@
+{
+  "_platform": "agentbuilder",
+  "_version": 1,
+  "_exportedAt": "2026-09-17T07:05:00.000Z",
+  "_fingerprint": "havenmatch_master_production_presentation_v1",
+  "name": "HAVENMATCH AI — COMPLETE MULTI-AGENT PLATFORM WORKFLOW",
+  "nodes": [
+    {
+      "id": "note-chat-stream",
+      "type": "sticky-note",
+      "position": {
+        "x": 100,
+        "y": -120
+      },
+      "width": 1920,
+      "height": 180,
+      "data": {
+        "label": "🤖 STREAM 1: CONVERSATIONAL AI REAL ESTATE ASSISTANT (CHAT TRIGGER & EXTRACTION)\n\n• Chat Trigger initiates user session\n• AI Guardrails validates for safe, compliant real-estate conversation\n• AI Agent 1 (Orchestrator with Gemini 3.5 Flash Lite + Memory) parses conversational intent\n• Information Extractor structures BHK, Locality, Intent, and Budget\n• AI Agent 2 (HavenMatch Assistant) responds naturally & sends response to chat"
+      }
+    },
+    {
+      "id": "chatTrigger-1788756478957005",
+      "data": {
+        "label": "Chat Trigger",
+        "inputs": {
+          "title": "AI Real Estate Assistant",
+          "isPublic": false,
+          "subtitle": "Tell me what property you are looking for",
+          "placeholder": "e.g. 2BHK in Coimbatore under 50 lakhs",
+          "allowedRoles": "admin, staff",
+          "jwtAlgorithm": "HS256",
+          "responseMode": "Last Node",
+          "roleClaimKey": "role",
+          "sessionClaim": "sub",
+          "authentication": "none",
+          "initialMessage": "Hi! I'm your AI real estate assistant. Are you looking to buy or rent a property?",
+          "requireRoleCheck": false,
+          "requireButtonClick": false,
+          "loadPreviousSession": false
+        },
+        "toolId": "chatTrigger",
+        "toolData": {
+          "id": "chatTrigger",
+          "displayName": "Chat Trigger",
+          "category": "Triggers",
+          "provider": "core",
+          "icon": "MessageSquare",
+          "description": "Start workflow from chat"
+        },
+        "isTrigger": true,
+        "isPrimaryTrigger": true
+      },
+      "type": "manual-trigger",
+      "width": 220,
+      "height": 99,
+      "position": {
+        "x": 100,
+        "y": 100
+      }
+    },
+    {
+      "id": "guardrails.validate-1788756494505006",
+      "data": {
+        "label": "AI Guardrails",
+        "inputs": {
+          "text": "{{$node[\"chatTrigger-1788756478957005\"].json[\"message\"]}}",
+          "model": "gemini-2.5-flash",
+          "action": "Check Text for Violations",
+          "provider": "gemini",
+          "guardrails": [
+            {
+              "type": "Personal Data (PII)",
+              "config": {
+                "type": "Selected",
+                "entities": [
+                  "Credit Card",
+                  "Email Address",
+                  "Phone Number"
+                ]
+              }
+            },
+            {
+              "type": "Secret Keys",
+              "config": {
+                "permissiveness": "Balanced"
+              }
+            }
+          ],
+          "credentialId": "65f02bb3-2543-4e82-bdf4-c0bab0018fc9"
+        },
+        "toolId": "guardrails.validate",
+        "toolData": {
+          "id": "guardrails.validate",
+          "displayName": "AI Guardrails",
+          "category": "AI / LLM",
+          "provider": "guardrails"
+        }
+      },
+      "type": "action",
+      "width": 220,
+      "height": 94,
+      "position": {
+        "x": 380,
+        "y": 100
+      }
+    },
+    {
+      "id": "stopError-1788756762933011",
+      "data": {
+        "label": "Stop Workflow",
+        "inputs": {
+          "errorType": "errorMessage",
+          "errorMessage": "Input blocked by safety guardrails."
+        },
+        "toolId": "stopError",
+        "toolData": {
+          "id": "stopError",
+          "displayName": "Stop Workflow",
+          "category": "Logic & Flow Control"
+        }
+      },
+      "type": "action",
+      "width": 220,
+      "height": 94,
+      "position": {
+        "x": 380,
+        "y": 240
+      }
+    },
+    {
+      "id": "ai-agent-orchestrator-1788756504902007",
+      "data": {
+        "label": "AI Agent (Intent Orchestrator)",
+        "inputs": {
+          "userPrompt": "",
+          "outputFormat": "text",
+          "promptSource": "define",
+          "systemPrompt": "You are an intelligent real estate intake agent.",
+          "requireOutputFormat": false
+        },
+        "toolId": "ai-agent-orchestrator",
+        "toolData": {
+          "id": "ai-agent-orchestrator",
+          "displayName": "AI Agent",
+          "category": "AI / LLM",
+          "provider": "aiagent"
+        },
+        "connectedHandles": [
+          "chat-model",
+          "memory"
+        ]
+      },
+      "type": "action",
+      "width": 220,
+      "height": 94,
+      "position": {
+        "x": 660,
+        "y": 100
+      }
+    },
+    {
+      "id": "gemini-1788757092048012",
+      "data": {
+        "label": "Gemini 3.5 Flash Lite",
+        "inputs": {
+          "model": "gemini-3.5-flash-lite",
+          "resource": "Text",
+          "operation": "Message a Model",
+          "credentialId": "65f02bb3-2543-4e82-bdf4-c0bab0018fc9"
+        },
+        "toolId": "gemini",
+        "toolData": {
+          "id": "gemini",
+          "displayName": "Google Gemini",
+          "type": "chat model"
+        },
+        "isSubNode": true
+      },
+      "type": "action",
+      "width": 100,
+      "height": 75,
+      "position": {
+        "x": 660,
+        "y": -20
+      }
+    },
+    {
+      "id": "simple-memory-1788757097639013",
+      "data": {
+        "label": "Simple Memory",
+        "inputs": {
+          "sessionId": "auto",
+          "contextWindowLength": 5
+        },
+        "toolId": "simple-memory",
+        "toolData": {
+          "id": "simple-memory",
+          "displayName": "Simple Memory",
+          "subCategory": "Memory"
+        },
+        "isSubNode": true
+      },
+      "type": "action",
+      "width": 100,
+      "height": 75,
+      "position": {
+        "x": 780,
+        "y": -20
+      }
+    },
+    {
+      "id": "informationExtractor-1788756523495008",
+      "data": {
+        "label": "Extract Information",
+        "inputs": {
+          "text": "{{$node[\"chatTrigger-1788756478957005\"].json[\"message\"]}}",
+          "model": "gemini-3.5-flash-lite",
+          "provider": "gemini",
+          "schemaType": "attribute_descriptions",
+          "credentialId": "65f02bb3-2543-4e82-bdf4-c0bab0018fc9",
+          "attributeDescriptions": [
+            { "name": "intent", "type": "string", "description": "Buy vs Rent" },
+            { "name": "property_type", "type": "string", "description": "Apartment, Villa, House" },
+            { "name": "location", "type": "string", "description": "Locality or city" },
+            { "name": "budget", "type": "string", "description": "Budget ceiling" },
+            { "name": "bedrooms", "type": "string", "description": "BHK count" }
+          ]
+        },
+        "toolId": "informationExtractor",
+        "toolData": {
+          "id": "informationExtractor",
+          "displayName": "Extract Information",
+          "category": "AI / LLM"
+        }
+      },
+      "type": "action",
+      "width": 220,
+      "height": 94,
+      "position": {
+        "x": 940,
+        "y": 100
+      }
+    },
+    {
+      "id": "core.set-1788756538805009",
+      "data": {
+        "label": "Set Fields",
+        "inputs": {
+          "mode": "manual",
+          "assignments": [
+            { "name": "intent", "type": "string", "value": "{{$node[\"informationExtractor-1788756523495008\"].json[\"intent\"]}}", "valueType": "fixed" },
+            { "name": "property_type", "type": "string", "value": "{{$node[\"informationExtractor-1788756523495008\"].json[\"property_type\"]}}", "valueType": "fixed" },
+            { "name": "location", "type": "string", "value": "{{$node[\"informationExtractor-1788756523495008\"].json[\"location\"]}}", "valueType": "fixed" },
+            { "name": "budget", "type": "string", "value": "{{$node[\"informationExtractor-1788756523495008\"].json[\"budget\"]}}", "valueType": "fixed" },
+            { "name": "bedrooms", "type": "string", "value": "{{$node[\"informationExtractor-1788756523495008\"].json[\"bedrooms\"]}}", "valueType": "fixed" }
+          ],
+          "includeBinaryData": true,
+          "supportDotNotation": true
+        },
+        "toolId": "core.set",
+        "toolData": {
+          "id": "core.set",
+          "displayName": "Set Fields",
+          "category": "Core  Utilities"
+        }
+      },
+      "type": "action",
+      "width": 220,
+      "height": 94,
+      "position": {
+        "x": 1220,
+        "y": 100
+      }
+    },
+    {
+      "id": "ai-agent-orchestrator-1788770499566001",
+      "data": {
+        "label": "AI Agent (HavenMatch Assistant)",
+        "inputs": {
+          "userPrompt": "You are HavenMatch, a real-estate assistant.\r\n\r\nBased on the extracted property requirements below, reply naturally to the user.\r\n\r\nRequirements:\r\n{{JSON.stringify($node[\"Extract Information\"].json)}}\r\n\r\nRules:\r\n- Reply like a real-estate assistant.\r\n- Do not return JSON.\r\n- Do not mention extraction, workflow, nodes, schema, or internal processing.\r\n- If all important details are available, briefly confirm the requirement and say you can help find matching properties.\r\n- If an important detail is missing, ask one simple question.\r\n- Keep the response short and conversational.",
+          "outputFormat": "text",
+          "promptSource": "define",
+          "systemPrompt": "",
+          "requireOutputFormat": false
+        },
+        "toolId": "ai-agent-orchestrator",
+        "toolData": {
+          "id": "ai-agent-orchestrator",
+          "displayName": "AI Agent",
+          "category": "AI / LLM",
+          "provider": "aiagent"
+        },
+        "connectedHandles": [
+          "chat-model"
+        ]
+      },
+      "type": "action",
+      "width": 240,
+      "height": 94,
+      "position": {
+        "x": 1500,
+        "y": 100
+      }
+    },
+    {
+      "id": "gemini-1788772467044002",
+      "data": {
+        "label": "Gemini 3.5 Flash Lite",
+        "inputs": {
+          "model": "gemini-3.5-flash-lite",
+          "resource": "Text",
+          "operation": "Message a Model",
+          "credentialId": "65f02bb3-2543-4e82-bdf4-c0bab0018fc9"
+        },
+        "toolId": "gemini",
+        "toolData": {
+          "id": "gemini",
+          "displayName": "Google Gemini",
+          "type": "chat model"
+        },
+        "isSubNode": true
+      },
+      "type": "action",
+      "width": 100,
+      "height": 75,
+      "position": {
+        "x": 1500,
+        "y": -20
+      }
+    },
+    {
+      "id": "chatAction-1788772772771004",
+      "data": {
+        "label": "Send Message",
+        "inputs": {
+          "message": "{{$node[\"ai-agent-orchestrator-1788770499566001\"].json[\"text\"]}}",
+          "operation": "Send Message"
+        },
+        "toolId": "chatAction",
+        "toolData": {
+          "id": "chatAction",
+          "displayName": "Chat Action",
+          "category": "Human Review"
+        }
+      },
+      "type": "action",
+      "width": 220,
+      "height": 94,
+      "position": {
+        "x": 1800,
+        "y": 100
+      }
+    },
+    {
+      "id": "note-matching-stream",
+      "type": "sticky-note",
+      "position": {
+        "x": 100,
+        "y": 420
+      },
+      "width": 3100,
+      "height": 180,
+      "data": {
+        "label": "🏙️ STREAM 2: PRODUCTION REAL-TIME PROPERTY MATCHING & GIS TELEMETRY ENGINE\n\n• Webhook POST /havenmatch/match receives buyer requirements\n• Action Router normalizes filters\n• MongoDB Atlas fetches active properties in real time\n• Hard Constraints Filter enforces budget ceilings & BHK requirements\n• Dynamic OSM Query accesses real OpenStreetMap POIs (hospitals, schools, transit)\n• Haversine & Lifestyle Scoring calculates mathematical 0-100% scores\n• Ranking Engine sorts properties descending\n• ⭐ Agent 1 (Lifestyle Matchmaker) generates tailored lifestyle match narrative\n• ⭐ Agent 2 (Locality & Value Advisor) evaluates micro-market pricing & livability\n• Dual persistence writes match audit to MongoDB match_results & returns 200 OK Webhook Response"
+      }
+    },
+    {
+      "id": "webhook-gateway",
+      "type": "webhook",
+      "position": {
+        "x": 100,
+        "y": 640
+      },
+      "width": 240,
+      "height": 100,
+      "data": {
+        "label": "POST /havenmatch/match",
+        "toolId": "webhook",
+        "toolData": {
+          "id": "webhook",
+          "displayName": "Webhook Trigger",
+          "category": "Input /  Output"
+        },
+        "isTrigger": true,
+        "inputs": {
+          "path": "havenmatch/match",
+          "method": "POST",
+          "responseMode": "respondWithNode",
+          "authentication": "none"
+        }
+      }
+    },
+    {
+      "id": "router-action-dispatcher",
+      "type": "action",
+      "position": {
+        "x": 400,
+        "y": 640
+      },
+      "width": 240,
+      "height": 94,
+      "data": {
+        "label": "ACTION ROUTER & NORMALIZER",
+        "toolId": "code.execute",
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing"
+        }
+      }
+    },
+    {
+      "id": "mongo-fetch-properties",
+      "type": "action",
+      "position": {
+        "x": 700,
+        "y": 640
+      },
+      "width": 240,
+      "height": 94,
+      "data": {
+        "label": "FETCH ACTIVE PROPERTIES",
+        "toolId": "mongodb.find_document",
+        "toolData": {
+          "id": "mongodb.find_document",
+          "displayName": "Find Document",
+          "category": "Memory & State"
+        },
+        "inputs": {
+          "database": "havenmatch",
+          "collection": "properties",
+          "query": "{\"status\": \"active\"}",
+          "limit": 50,
+          "credentialId": "aeb5b1df-5a1d-4599-adf7-54c7758866a9"
+        }
+      }
+    },
+    {
+      "id": "hard-constraints-filter",
+      "type": "action",
+      "position": {
+        "x": 1000,
+        "y": 640
+      },
+      "width": 240,
+      "height": 94,
+      "data": {
+        "label": "HARD CONSTRAINTS FILTER",
+        "toolId": "code.execute",
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing"
+        }
+      }
+    },
+    {
+      "id": "dynamic-osm-location",
+      "type": "action",
+      "position": {
+        "x": 1300,
+        "y": 640
+      },
+      "width": 240,
+      "height": 94,
+      "data": {
+        "label": "DYNAMIC OSM QUERY",
+        "toolId": "httpRequest",
+        "toolData": {
+          "id": "httpRequest",
+          "displayName": "Http Request",
+          "category": "API & HTTP"
+        }
+      }
+    },
+    {
+      "id": "haversine-lifestyle-scoring",
+      "type": "action",
+      "position": {
+        "x": 1600,
+        "y": 640
+      },
+      "width": 240,
+      "height": 94,
+      "data": {
+        "label": "HAVERSINE & MATCH SCORING",
+        "toolId": "code.execute",
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing"
+        }
+      }
+    },
+    {
+      "id": "ranking-engine",
+      "type": "action",
+      "position": {
+        "x": 1900,
+        "y": 640
+      },
+      "width": 220,
+      "height": 94,
+      "data": {
+        "label": "RANKING ENGINE",
+        "toolId": "sort",
+        "toolData": {
+          "id": "sort",
+          "displayName": "Sort Data",
+          "category": "Data  Processing"
+        }
+      }
+    },
+    {
+      "id": "agent-lifestyle-matchmaker",
+      "type": "action",
+      "position": {
+        "x": 2180,
+        "y": 640
+      },
+      "width": 260,
+      "height": 94,
+      "data": {
+        "label": "⭐ AGENT 1: LIFESTYLE MATCHMAKER",
+        "toolId": "code.execute",
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "AI Agent (Lifestyle Concierge)",
+          "category": "AI & Machine Learning"
+        }
+      }
+    },
+    {
+      "id": "agent-locality-advisor",
+      "type": "action",
+      "position": {
+        "x": 2500,
+        "y": 640
+      },
+      "width": 260,
+      "height": 94,
+      "data": {
+        "label": "⭐ AGENT 2: LOCALITY & VALUE ADVISOR",
+        "toolId": "code.execute",
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "AI Agent (Locality & Valuation)",
+          "category": "AI & Machine Learning"
+        }
+      }
+    },
+    {
+      "id": "package-recommendations",
+      "type": "action",
+      "position": {
+        "x": 2820,
+        "y": 640
+      },
+      "width": 240,
+      "height": 94,
+      "data": {
+        "label": "PACKAGE RECOMMENDATIONS",
+        "toolId": "code.execute",
+        "toolData": {
+          "id": "code.execute",
+          "displayName": "Code",
+          "category": "Data  Processing"
+        }
+      }
+    },
+    {
+      "id": "mongo-save-match-results",
+      "type": "action",
+      "position": {
+        "x": 3120,
+        "y": 550
+      },
+      "width": 240,
+      "height": 94,
+      "data": {
+        "label": "SAVE MATCH RESULTS",
+        "toolId": "mongodb.insert_document",
+        "toolData": {
+          "id": "mongodb.insert_document",
+          "displayName": "Insert Document",
+          "category": "Memory & State"
+        },
+        "inputs": {
+          "database": "havenmatch",
+          "collection": "match_results",
+          "credentialId": "aeb5b1df-5a1d-4599-adf7-54c7758866a9"
+        }
+      }
+    },
+    {
+      "id": "webhook-response",
+      "type": "action",
+      "position": {
+        "x": 3120,
+        "y": 730
+      },
+      "width": 220,
+      "height": 94,
+      "data": {
+        "label": "WEBHOOK RESPONSE",
+        "toolId": "respondToWebhook",
+        "toolData": {
+          "id": "respondToWebhook",
+          "displayName": "Webhook Response",
+          "category": "Input /  Output"
+        }
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e-chat-guard", "type": "custom", "source": "chatTrigger-1788756478957005", "target": "guardrails.validate-1788756494505006" },
+    { "id": "e-guard-safe", "type": "custom", "source": "guardrails.validate-1788756494505006", "target": "ai-agent-orchestrator-1788756504902007", "sourceHandle": "safe" },
+    { "id": "e-guard-blocked", "type": "custom", "source": "guardrails.validate-1788756494505006", "target": "stopError-1788756762933011", "sourceHandle": "blocked" },
+    { "id": "e-gemini-1", "type": "custom", "source": "gemini-1788757092048012", "target": "ai-agent-orchestrator-1788756504902007", "sourceHandle": "subnode-out", "targetHandle": "chat-model" },
+    { "id": "e-memory-1", "type": "custom", "source": "simple-memory-1788757097639013", "target": "ai-agent-orchestrator-1788756504902007", "sourceHandle": "subnode-out", "targetHandle": "memory" },
+    { "id": "e-agent-extract", "type": "custom", "source": "ai-agent-orchestrator-1788756504902007", "target": "informationExtractor-1788756523495008" },
+    { "id": "e-extract-set", "type": "custom", "source": "informationExtractor-1788756523495008", "target": "core.set-1788756538805009" },
+    { "id": "e-set-agent2", "type": "custom", "source": "core.set-1788756538805009", "target": "ai-agent-orchestrator-1788770499566001" },
+    { "id": "e-gemini-2", "type": "custom", "source": "gemini-1788772467044002", "target": "ai-agent-orchestrator-1788770499566001", "sourceHandle": "subnode-out", "targetHandle": "chat-model" },
+    { "id": "e-agent2-chatAction", "type": "custom", "source": "ai-agent-orchestrator-1788770499566001", "target": "chatAction-1788772772771004" },
+    { "id": "e1", "type": "custom", "source": "webhook-gateway", "target": "router-action-dispatcher" },
+    { "id": "e2", "type": "custom", "source": "router-action-dispatcher", "target": "mongo-fetch-properties" },
+    { "id": "e3", "type": "custom", "source": "mongo-fetch-properties", "target": "hard-constraints-filter" },
+    { "id": "e4", "type": "custom", "source": "hard-constraints-filter", "target": "dynamic-osm-location" },
+    { "id": "e5", "type": "custom", "source": "dynamic-osm-location", "target": "haversine-lifestyle-scoring" },
+    { "id": "e6", "type": "custom", "source": "haversine-lifestyle-scoring", "target": "ranking-engine" },
+    { "id": "e7", "type": "custom", "source": "ranking-engine", "target": "agent-lifestyle-matchmaker" },
+    { "id": "e8", "type": "custom", "source": "agent-lifestyle-matchmaker", "target": "agent-locality-advisor" },
+    { "id": "e9", "type": "custom", "source": "agent-locality-advisor", "target": "package-recommendations" },
+    { "id": "e10", "type": "custom", "source": "package-recommendations", "target": "mongo-save-match-results" },
+    { "id": "e11", "type": "custom", "source": "package-recommendations", "target": "webhook-response" }
+  ]
+}
