@@ -70,13 +70,13 @@ class PropertyService {
       return this.applyClientFilters(allProps, requirements);
     }
 
-    this.inFlightListPromise = (async () => {
+    const fetchPromise = (async () => {
       let properties: Property[] = [];
       try {
         const data = await callAPI<PropertiesListResponse>('properties/list', { filters });
         properties = data.properties || [];
       } catch (err: any) {
-        console.error('[PropertyService] Failed to load properties from MongoDB Atlas:', err.message);
+        console.error('[PropertyService] Failed to load properties from database:', err.message);
         if (this.cache && this.cache.key === cacheKey) {
           return this.cache.data;
         }
@@ -90,15 +90,19 @@ class PropertyService {
       }
 
       return properties;
-    })().finally(() => {
-      this.inFlightListPromise = null;
-    });
+    })();
 
-    const allProps = await this.inFlightListPromise;
-    return this.applyClientFilters(allProps, requirements);
+    this.inFlightListPromise = fetchPromise;
+    try {
+      const allProps = await fetchPromise;
+      return this.applyClientFilters(allProps || [], requirements);
+    } finally {
+      this.inFlightListPromise = null;
+    }
   }
 
   private applyClientFilters(properties: Property[], requirements?: BuyerRequirements | PropertyFilters): Property[] {
+    if (!properties || !Array.isArray(properties)) return [];
     if (!requirements) return properties;
     let filtered = [...properties];
 
