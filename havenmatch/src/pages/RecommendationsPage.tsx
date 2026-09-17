@@ -113,16 +113,14 @@ export const RecommendationsPage: React.FC = () => {
     }
     let list = Array.from(uniqueMap.values());
 
-    // 1. HARD MAXIMUM BUDGET FILTER — Only apply if budget aligns with active intent
-    if (userBudget > 0) {
-      const activeIntent = intentFilter !== 'ALL' ? intentFilter : requirements.intent;
+    // 1. HARD MAXIMUM BUDGET FILTER — Only apply during default AI match mode, allowing manual filters to explore freely
+    if (userBudget > 0 && activeFilterCount === 0) {
+      const activeIntent = requirements.intent;
       const isRentBudget = userBudget < 200000;
       if (activeIntent === 'RENT' && isRentBudget) {
         list = list.filter((p) => isPropertyWithinBudget(p, userBudget, 'RENT'));
       } else if (activeIntent === 'BUY' && !isRentBudget) {
         list = list.filter((p) => isPropertyWithinBudget(p, userBudget, 'BUY'));
-      } else if ((activeIntent as string) === 'ALL') {
-        list = list.filter((p) => isPropertyWithinBudget(p, userBudget, activeIntent));
       }
     }
 
@@ -138,15 +136,22 @@ export const RecommendationsPage: React.FC = () => {
 
     if (intentFilter !== 'ALL') {
       list = list.filter(p => {
-        const pIntent = (p.intent || (p as any).listingType || (p as any).listing_type || (p.price < 100000 ? 'RENT' : 'BUY')).toUpperCase();
-        if (intentFilter === 'BUY') return pIntent === 'BUY' || pIntent === 'SELL' || pIntent === 'SALE';
-        if (intentFilter === 'RENT') return pIntent === 'RENT' || pIntent === 'RENT_OUT';
+        const pType = String((p as any).listing_type || p.listingType || p.intent || (p.price < 100000 ? 'RENT' : 'BUY')).toUpperCase();
+        if (intentFilter === 'BUY') {
+          return (pType === 'BUY' || pType === 'SALE' || pType === 'SELL' || (p.price && p.price >= 200000)) && !(p.price && p.price < 100000);
+        }
+        if (intentFilter === 'RENT') {
+          return (pType === 'RENT' || pType === 'RENT_OUT' || (p.price && p.price < 100000)) && !(p.price && p.price >= 200000);
+        }
         return true;
       });
     }
 
     if (filterBhk !== 'ALL') {
-      list = list.filter(p => filterBhk === 5 ? (Number(p.bhk) >= 5 || Number((p as any).bedrooms) >= 5) : (Number(p.bhk) === filterBhk || Number((p as any).bedrooms) === filterBhk));
+      list = list.filter(p => {
+        const pBhk = Number(p.bhk || (p as any).bedrooms || 0);
+        return filterBhk === 5 ? pBhk >= 5 : pBhk === filterBhk;
+      });
     }
 
     if (selectedLocality !== 'ALL' && selectedLocality !== 'All Localities') {
