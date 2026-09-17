@@ -16,7 +16,7 @@ const CLOUD_WEBHOOK =
   (import.meta as any).env?.VITE_MATCH_WEBHOOK_URL ||
   'https://api.agents.snsihub.ai/webhook/havenmatch/match';
 
-const TIMEOUT_MS = 8000;
+const TIMEOUT_MS = 25000; // Allow sufficient time for 23-node SNS Workbench cloud execution
 const inFlightAPICalls = new Map<string, Promise<any>>();
 
 export class APIError extends Error {
