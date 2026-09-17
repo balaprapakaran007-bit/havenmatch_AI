@@ -27,6 +27,10 @@ export interface APIRecommendation {
   computedDistanceKm?: number;
   distanceFromTarget?: string;
   commuteEstimate?: { driveTime: string; walkTime?: string };
+  agentNarrative?: string;
+  lifestyleHighlight?: string;
+  valuationVerdict?: string;
+  neighborhoodTip?: string;
 }
 
 interface MatchingBuyerResponse {
@@ -134,7 +138,11 @@ function adaptRecommendation(rec: APIRecommendation, targetName?: string, target
         : `${rec.matchScore}% lifestyle match for your priorities.`),
     computedDistanceKm: distKm,
     distanceFromTarget: distTarget,
-    commuteEstimate: commuteEst
+    commuteEstimate: commuteEst,
+    agentNarrative: rec.agentNarrative || rec.property?.agentNarrative,
+    lifestyleHighlight: rec.lifestyleHighlight || rec.property?.lifestyleHighlight,
+    valuationVerdict: rec.valuationVerdict || rec.property?.valuationVerdict,
+    neighborhoodTip: rec.neighborhoodTip || rec.property?.neighborhoodTip
   };
 }
 

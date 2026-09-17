@@ -2,6 +2,8 @@ import { getDb } from '../config/db.js';
 import { getAuthenticatedUser } from '../middleware/authMiddleware.js';
 import { normalizeProperty } from './propertyController.js';
 import { getPropertyPrice, isPropertyWithinBudget } from '../utils/budgetUtils.js';
+import { generateAgent1LifestyleNarrative, generateAgent2LocalityAdvisory, enrichRecommendationsWithAgents } from '../utils/agentUtils.js';
+export { generateAgent1LifestyleNarrative, generateAgent2LocalityAdvisory, enrichRecommendationsWithAgents };
 
 const LANDMARK_COORDINATES = {
   'tidel park': { lat: 11.0285, lng: 77.0290 },
@@ -391,14 +393,17 @@ export async function getBuyerRecommendations(req, res, next) {
       .filter(Boolean)
       .sort((a, b) => b.matchScore - a.matchScore);
 
+    // Enrich with ⭐ AGENT 1 (Lifestyle Matchmaker) and ⭐ AGENT 2 (Locality & Value Advisor)
+    const enrichedRecommendations = await enrichRecommendationsWithAgents(recommendations, buyerCriteria);
+
     if (buyerId) {
       db.collection('match_results').insertOne({
         buyerId,
         userId: buyerId,
         userType,
         evaluatedAt: new Date(),
-        matchCount: recommendations.length,
-        topMatchScore: recommendations[0]?.matchScore || 0
+        matchCount: enrichedRecommendations.length,
+        topMatchScore: enrichedRecommendations[0]?.matchScore || 0
       }).catch(() => {});
     }
 
@@ -408,9 +413,9 @@ export async function getBuyerRecommendations(req, res, next) {
       userType,
       buyerType: userType,
       targetLocationName: buyerCriteria.targetLocationName || (isITProfessional ? 'TIDEL Park' : null),
-      matchCount: recommendations.length,
-      recommendations,
-      matches: recommendations
+      matchCount: enrichedRecommendations.length,
+      recommendations: enrichedRecommendations,
+      matches: enrichedRecommendations
     });
   } catch (err) {
     next(err);

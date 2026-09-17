@@ -319,6 +319,28 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, match, onC
               ) : null}
             </div>
 
+            {/* AI Agent Insights: Lifestyle Concierge & Valuation Advisor */}
+            {(match?.agentNarrative || property.agentNarrative || match?.valuationVerdict || property.valuationVerdict) && (
+              <div className="mb-3 p-2.5 rounded-xl bg-gradient-to-r from-orange-50/90 to-amber-50/90 border border-orange-200/80 text-[11px] space-y-1.5 shadow-2xs">
+                {(match?.agentNarrative || property.agentNarrative) && (
+                  <div className="flex items-start gap-1.5 text-slate-800">
+                    <Sparkles className="w-3.5 h-3.5 text-orange-600 shrink-0 mt-0.5" />
+                    <span className="leading-snug">
+                      <strong className="text-orange-950 font-bold">AI Concierge:</strong> {match?.agentNarrative || property.agentNarrative}
+                    </span>
+                  </div>
+                )}
+                {(match?.valuationVerdict || property.valuationVerdict) && (
+                  <div className="flex items-start gap-1.5 text-slate-700 pt-1 border-t border-orange-100">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                    <span className="leading-snug">
+                      <strong className="text-emerald-950 font-bold">Valuation Advisor:</strong> {match?.valuationVerdict || property.valuationVerdict}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* "Why It Matches" Explainability Box */}
             {matchHighlights.length > 0 && (
               <div 

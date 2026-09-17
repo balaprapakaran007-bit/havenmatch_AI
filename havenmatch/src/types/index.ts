@@ -117,6 +117,10 @@ export interface Property {
     bio?: string;
     ownerType?: 'OWNER' | 'AGENT';
   };
+  agentNarrative?: string;
+  lifestyleHighlight?: string;
+  valuationVerdict?: string;
+  neighborhoodTip?: string;
 }
 
 export type BuyerType = 'Student' | 'Bachelor' | 'Family';
@@ -184,6 +188,10 @@ export interface MatchResult {
   computedDistanceKm?: number;
   distanceFromTarget?: string;
   commuteEstimate?: { driveTime: string; walkTime?: string };
+  agentNarrative?: string;
+  lifestyleHighlight?: string;
+  valuationVerdict?: string;
+  neighborhoodTip?: string;
 }
 
 export type CardinalDirection = 

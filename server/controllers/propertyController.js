@@ -6,6 +6,7 @@ import { getDb, safeObjectId } from '../config/db.js';
 import { getAuthenticatedUser } from '../middleware/authMiddleware.js';
 import { isPropertyWithinBudget } from '../utils/budgetUtils.js';
 import { geocodeAddress, discoverNearbyPlaces } from '../utils/locationUtils.js';
+import { generateAgent1LifestyleNarrative, generateAgent2LocalityAdvisory } from '../utils/agentUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -155,7 +156,11 @@ export function normalizeProperty(p) {
     primaryImage: p.primaryImage || images[0] || '',
     coverImage: p.coverImage || images[0] || '',
     createdAt: p.createdAt || new Date(),
-    updatedAt: p.updatedAt || new Date()
+    updatedAt: p.updatedAt || new Date(),
+    agentNarrative: p.agentNarrative || generateAgent1LifestyleNarrative(p, {}).agentNarrative,
+    lifestyleHighlight: p.lifestyleHighlight || generateAgent1LifestyleNarrative(p, {}).lifestyleHighlight,
+    valuationVerdict: p.valuationVerdict || generateAgent2LocalityAdvisory(p).valuationVerdict,
+    neighborhoodTip: p.neighborhoodTip || generateAgent2LocalityAdvisory(p).neighborhoodTip
   };
 }
 
