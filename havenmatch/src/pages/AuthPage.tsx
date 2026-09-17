@@ -319,34 +319,6 @@ export const AuthPage: React.FC = () => {
               </div>
             )}
 
-            {/* Role Selection Option */}
-            <div className="pt-1">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">I want to:</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedRole('BUYER')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
-                    selectedRole === 'BUYER'
-                      ? 'border-orange-600 bg-orange-50 text-orange-800 shadow-xs'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  🏡 Buy / Rent Home
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedRole('SELLER')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
-                    selectedRole === 'SELLER'
-                      ? 'border-orange-600 bg-orange-50 text-orange-800 shadow-xs'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  🏢 List / Sell Property
-                </button>
-              </div>
-            </div>
 
             {/* Primary Action Button */}
             <button
