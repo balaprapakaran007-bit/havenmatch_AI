@@ -7,6 +7,7 @@ import { Footer } from './components/layout/Footer';
 import { ScrollToTop } from './components/common/ScrollToTop';
 import { Toast } from './components/common/Toast';
 import { VisitSchedulerModal } from './components/visit/VisitSchedulerModal';
+import { AIChatBot } from './components/chat/AIChatBot';
 import { propertyService } from './services/propertyService';
 import { Property } from './types';
 
@@ -115,6 +116,9 @@ const AppContent: React.FC = () => {
 
       <Footer />
       <Toast />
+
+      {/* Interactive AI Real Estate Assistant Chatbot */}
+      <AIChatBot />
 
       {/* Global Visit Scheduler Modal */}
       {openVisitModal && visitProperty && (
