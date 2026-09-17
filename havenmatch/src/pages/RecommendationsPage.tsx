@@ -55,7 +55,7 @@ export const RecommendationsPage: React.FC = () => {
     setIsLoadingProps(true);
 
     propertyService
-      .getProperties(requirements)
+      .getProperties()
       .then((props) => {
         if (isMounted) {
           setProperties(props);
@@ -103,7 +103,11 @@ export const RecommendationsPage: React.FC = () => {
 
     // 1. HARD MAXIMUM BUDGET FILTER — MUST HAPPEN BEFORE SORTING, RANKING, AND AI MATCHING
     if (userBudget > 0) {
-      list = list.filter((p) => isPropertyWithinBudget(p, userBudget, intentFilter !== 'ALL' ? intentFilter : requirements.intent));
+      const activeIntent = intentFilter !== 'ALL' ? intentFilter : requirements.intent;
+      const isRentBudget = userBudget < 200000;
+      if (intentFilter === 'ALL' || (activeIntent === 'RENT' && isRentBudget) || (activeIntent === 'BUY' && !isRentBudget)) {
+        list = list.filter((p) => isPropertyWithinBudget(p, userBudget, activeIntent));
+      }
     }
 
     if (searchQuery.trim()) {
@@ -152,7 +156,11 @@ export const RecommendationsPage: React.FC = () => {
   // FINAL SAFETY FILTER: Enforce hard budget limit immediately before rendering results
   const safeProperties = useMemo(() => {
     if (userBudget > 0) {
-      return displayedProperties.filter((property) => isPropertyWithinBudget(property, userBudget, intentFilter !== 'ALL' ? intentFilter : requirements.intent));
+      const activeIntent = intentFilter !== 'ALL' ? intentFilter : requirements.intent;
+      const isRentBudget = userBudget < 200000;
+      if (intentFilter === 'ALL' || (activeIntent === 'RENT' && isRentBudget) || (activeIntent === 'BUY' && !isRentBudget)) {
+        return displayedProperties.filter((property) => isPropertyWithinBudget(property, userBudget, activeIntent));
+      }
     }
     return displayedProperties;
   }, [displayedProperties, userBudget, intentFilter, requirements.intent]);

@@ -40,21 +40,33 @@ export const BuyerDashboardPage: React.FC = () => {
 
   useEffect(() => {
     visitService.getVisits().then(setVisits);
-    propertyService.getProperties(requirements).then((props) => {
+    propertyService.getProperties().then((props) => {
+      const userIntent = (requirements.intent || (userSession as any)?.intent || 'BUY').toUpperCase();
       const userBudget = requirements.budgetMax || 0;
+
+      // Filter by intent (BUY matches SALE, RENT matches RENT)
+      const intentFiltered = props.filter((p) => {
+        const pIntent = (p.intent || (p as any).listingType || (p.price < 100000 ? 'RENT' : 'BUY')).toUpperCase();
+        if (userIntent === 'RENT') return pIntent === 'RENT' || pIntent === 'RENT_OUT';
+        return pIntent === 'BUY' || pIntent === 'SELL';
+      });
+
+      const candidateList = intentFiltered.length > 0 ? intentFiltered : props;
       const eligible = userBudget > 0
-        ? props.filter((p) => isPropertyWithinBudget(p, userBudget, requirements.intent))
-        : props;
-      setAllProperties(eligible);
-      if (eligible.length > 0) {
-        setTopMatch(eligible[0]);
-        setRecommendedList(eligible.slice(1, 4));
+        ? candidateList.filter((p) => isPropertyWithinBudget(p, userBudget, userIntent))
+        : candidateList;
+
+      const finalProps = eligible.length > 0 ? eligible : candidateList;
+      setAllProperties(finalProps);
+      if (finalProps.length > 0) {
+        setTopMatch(finalProps[0]);
+        setRecommendedList(finalProps.slice(1, 4));
       } else {
         setTopMatch(null);
         setRecommendedList([]);
       }
     });
-  }, [requirements]);
+  }, [requirements, (userSession as any)?.intent]);
 
   const savedProperties = allProperties.filter((p) => savedPropertyIds.includes(p.id));
   const userName = userSession?.name || (userSession?.email ? userSession.email.split('@')[0] : 'Home Buyer');
